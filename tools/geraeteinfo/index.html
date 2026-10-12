@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Geräteinfo · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Geräteinfo</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card"><h3>Gerät</h3><div id="dev"></div></div>
+<div class="card"><h3>Bildschirm</h3><div id="scr"></div></div>
+<div class="card"><h3>Grafik</h3><div id="gpu"></div></div>
+<div class="card"><h3>Browser</h3><div id="brw"></div></div>
+<button class="btn tonal" id="cpAll">Alles kopieren</button>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var n = navigator, s = screen;
+  function mq(q) { try { return !!(window.matchMedia && window.matchMedia(q).matches); } catch (e) { return false; } }
+  function yn(v) { return v ? "ja" : "nein"; }
+
+  function gpuInfo() {
+    try {
+      var c = document.createElement("canvas");
+      var g = c.getContext("webgl") || c.getContext("experimental-webgl");
+      if (!g) { return [["WebGL", "nicht verfügbar"]]; }
+      var dbg = g.getExtension("WEBGL_debug_renderer_info");
+      return [
+        ["GPU", dbg ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)],
+        ["Hersteller", dbg ? g.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : g.getParameter(g.VENDOR)],
+        ["WebGL", g.getParameter(g.VERSION)],
+        ["Max. Texturgröße", g.getParameter(g.MAX_TEXTURE_SIZE) + " px"]
+      ];
+    } catch (e) { return [["WebGL", "nicht verfügbar"]]; }
+  }
+  function tz() {
+    try { var z = Intl.DateTimeFormat().resolvedOptions().timeZone; if (z) { return z; } } catch (e) {}
+    var o = -new Date().getTimezoneOffset();
+    return "UTC" + (o >= 0 ? "+" : "-") + Math.floor(Math.abs(o) / 60) + (Math.abs(o) % 60 ? ":" + ("0" + Math.abs(o) % 60).slice(-2) : "");
+  }
+  function storageOk() { try { localStorage.setItem("wp.t", "1"); localStorage.removeItem("wp.t"); return true; } catch (e) { return false; } }
+
+  $("#dev").innerHTML = kv([
+    ["Plattform", n.platform],
+    ["Prozessorkerne", n.hardwareConcurrency],
+    ["Touchpunkte", n.maxTouchPoints != null ? n.maxTouchPoints : n.msMaxTouchPoints],
+    ["Online", n.onLine == null ? null : yn(n.onLine)]
+  ]);
+  function drawScr() {
+    var dpr = window.devicePixelRatio || 1;
+    var ori = s.orientation && s.orientation.type ? s.orientation.type : s.msOrientation;
+    $("#scr").innerHTML = kv([
+      ["Auflösung (CSS)", s.width + " × " + s.height],
+      ["Auflösung (Pixel)", "≈ " + Math.round(s.width * dpr) + " × " + Math.round(s.height * dpr)],
+      ["Pixelverhältnis", nf(dpr, 2)],
+      ["Fenster", window.innerWidth + " × " + window.innerHeight],
+      ["Farbtiefe", s.colorDepth ? s.colorDepth + " Bit" : null],
+      ["Ausrichtung", ori || (window.innerWidth > window.innerHeight ? "Querformat" : "Hochformat")],
+      ["Bildwiederholrate", "im Werkzeug „Bildrate (FPS)“"]
+    ]);
+  }
+  drawScr(); window.addEventListener("resize", drawScr, false);
+  $("#gpu").innerHTML = kv(gpuInfo());
+  $("#brw").innerHTML = kv([
+    ["User-Agent", n.userAgent],
+    ["Sprache", n.language || n.userLanguage],
+    ["Zeitzone", tz()],
+    ["Cookies", yn(n.cookieEnabled)],
+    ["Lokaler Speicher", yn(storageOk())],
+    ["Als App geöffnet", yn(mq("(display-mode: standalone)") || n.standalone)],
+    ["Dunkles Farbschema", yn(mq("(prefers-color-scheme: dark)"))]
+  ]);
+  $("#cpAll").onclick = function () {
+    var cards = $$(".card"), out = [], i, j, dts, dds, lines;
+    for (i = 0; i < cards.length; i++) {
+      dts = $$("dt", cards[i]); dds = $$("dd", cards[i]); lines = [];
+      for (j = 0; j < dts.length; j++) { lines.push("  " + dts[j].textContent + ": " + dds[j].textContent); }
+      out.push(cards[i].querySelector("h3").textContent + "\n" + lines.join("\n"));
+    }
+    copy(out.join("\n\n"));
+  };
+})();
+</script>
+</body>
+</html>
