@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Einstellungen · Systemtools</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script>var ROOT="../";</script>
+<script src="../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Einstellungen</h1><a class="iconbtn" href="../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+  <h3>Darstellung</h3>
+  <div class="seg" id="theme"><button data-v="system">System</button><button data-v="light">Hell</button><button data-v="dark">Dunkel</button></div>
+  <div class="switch" style="margin-top:8px"><span>OLED-Schwarz im Dunkelmodus (reiner schwarzer Hintergrund)</span><button class="tg" id="oled" aria-pressed="false" aria-label="OLED-Schwarz"></button></div>
+  <p class="muted" style="font-size:14px;margin:4px 0 0">Die Akzentfarbe stellst du im Werkzeug <a href="../tools/palette/">Farbe &amp; Palette</a> ein.</p>
+</div>
+<div class="card">
+  <h3>Daten</h3>
+  <p class="muted" style="font-size:14px;margin:0 0 10px">Einstellungen, Verknüpfungen und Verlauf liegen nur in diesem Browser auf diesem Gerät.</p>
+  <button class="btn danger" id="wipe">Alle lokalen Daten löschen</button>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  function draw() {
+    var bs = $$("#theme button"), i;
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-v") === settings.theme ? "true" : "false"); }
+    $("#oled").setAttribute("aria-pressed", settings.oled ? "true" : "false");
+  }
+  draw();
+  $("#theme").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    settings.theme = b.getAttribute("data-v"); saveSettings(); draw();
+  };
+  $("#oled").onclick = function () { settings.oled = !settings.oled; saveSettings(); draw(); };
+  $("#wipe").onclick = function () {
+    if (!confirm("Alle gespeicherten Einstellungen, Verknüpfungen und Verläufe löschen?")) { return; }
+    store.wipe(); location.reload();
+  };
+})();
+</script>
+</body>
+</html>
