@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Verknüpfungen · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Verknüpfungen</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="hint">Sammle Links und Texte, die du oft brauchst. Sie bleiben nur in diesem Browser gespeichert. Jedes Werkzeug hat auch eine eigene Adresse, z. B. <span class="mono">…/tools/fps/</span>.</div>
+<div class="card">
+  <h3>Neue Verknüpfung</h3>
+  <div class="seg" id="type"><button data-t="link" aria-pressed="true">Link</button><button data-t="text">Text</button><button data-t="tool">Werkzeug</button></div>
+  <label class="fld" for="sName">Name</label><input type="text" id="sName" placeholder="z. B. Router">
+  <div id="valWrap"></div>
+  <div class="row" style="margin-top:12px"><button class="btn" id="sAdd">Hinzufügen</button></div>
+</div>
+<input class="search" id="q" type="search" placeholder="Suchen …">
+<div class="card" id="sList"></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var items = store.get("shortcuts", []);
+  var type = "link";
+  var LABEL = { link: "Link", text: "Text", tool: "Werkzeug" };
+
+  function toolById(id) { for (var i = 0; i < TOOLS.length; i++) { if (TOOLS[i].id === id) { return TOOLS[i]; } } return null; }
+  function valField() {
+    var h, i;
+    if (type === "link") { h = '<label class="fld" for="sVal">Adresse</label><input type="url" id="sVal" placeholder="https://…">'; }
+    else if (type === "text") { h = '<label class="fld" for="sVal">Text</label><textarea id="sVal" rows="3" placeholder="Wird beim Antippen kopiert"></textarea>'; }
+    else {
+      h = '<label class="fld" for="sVal">Werkzeug</label><select id="sVal">';
+      for (i = 0; i < TOOLS.length; i++) { h += '<option value="' + TOOLS[i].id + '">' + TOOLS[i].title + "</option>"; }
+      h += "</select>";
+    }
+    $("#valWrap").innerHTML = h;
+    if (type === "tool") { $("#sVal").onchange = function () { if (!$("#sName").value) { $("#sName").value = toolById($("#sVal").value).title; } }; }
+  }
+  function draw() {
+    var q = $("#q").value.replace(/^\s+|\s+$/g, "").toLowerCase(), h = "", n = 0, i, it, sub, t;
+    for (i = 0; i < items.length; i++) {
+      it = items[i];
+      if (q && (it.name + " " + it.value).toLowerCase().indexOf(q) < 0) { continue; }
+      n++;
+      t = it.type === "tool" ? toolById(it.value) : null;
+      sub = it.type === "tool" ? (t ? ROOT + "tools/" + t.id + "/" : "Werkzeug fehlt") : it.value;
+      h += '<div class="list-item"><div class="grow"><b>' + esc(it.name) + '</b> <span class="badge">' + LABEL[it.type] + "</span><small>" + esc(sub) + "</small></div>" +
+        '<button class="btn tonal" data-a="use" data-i="' + i + '">' + (it.type === "text" ? "Kopieren" : "Öffnen") + "</button>" +
+        '<button class="btn text" data-a="del" data-i="' + i + '" aria-label="Löschen">✕</button></div>';
+    }
+    $("#sList").innerHTML = n ? h : '<p class="muted" style="margin:0">' + (items.length ? "Nichts gefunden." : "Noch keine Verknüpfungen.") + "</p>";
+  }
+  valField(); draw();
+
+  $("#type").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    type = b.getAttribute("data-t");
+    var bs = $$("#type button");
+    for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i] === b ? "true" : "false"); }
+    valField();
+  };
+  $("#q").oninput = draw;
+  $("#sAdd").onclick = function () {
+    var name = $("#sName").value.replace(/^\s+|\s+$/g, ""), value = $("#sVal").value.replace(/^\s+|\s+$/g, "");
+    if (!value) { toast(type === "link" ? "Adresse eingeben" : "Text eingeben"); return; }
+    if (type === "link") {
+      if (!/^[a-z][a-z0-9+.\-]*:/i.test(value)) { value = "https://" + value; }
+      if (!/^(https?|mailto|tel|geo|sms):/i.test(value)) { toast("Ungültige Adresse"); return; }
+    }
+    items.unshift({ type: type, name: name || (type === "link" ? value.replace(/^https?:\/\//, "") : value.slice(0, 30)), value: value });
+    store.set("shortcuts", items); $("#sName").value = ""; valField(); draw();
+  };
+  $("#sList").onclick = function (e) {
+    var b = closest(e.target, "[data-a]"); if (!b) { return; }
+    var idx = parseInt(b.getAttribute("data-i"), 10), it = items[idx], t;
+    if (b.getAttribute("data-a") === "del") {
+      if (confirm("„" + it.name + "“ löschen?")) { items.splice(idx, 1); store.set("shortcuts", items); draw(); }
+      return;
+    }
+    if (it.type === "text") { copy(it.value); }
+    else if (it.type === "tool") { t = toolById(it.value); if (t) { location.href = ROOT + "tools/" + t.id + "/"; } }
+    else { window.open(it.value, "_blank"); }
+  };
+})();
+</script>
+</body>
+</html>
