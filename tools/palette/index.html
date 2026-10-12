@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Farbe &amp; Palette · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Farbe &amp; Palette</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="hint">Die Systemfarbe deines Handys kann eine Webseite nicht ändern. Hier wählst du die Akzentfarbe dieser Web-App und bekommst die passenden Farbtöne im Stil von Material You. Tippe auf einen Farbton, um den Hex-Wert zu kopieren.</div>
+<div class="card">
+  <h3>Akzentfarbe</h3>
+  <div id="sw"></div>
+  <div class="row" style="margin-top:12px">
+    <input type="text" id="hex" class="mono" maxlength="7" aria-label="Hex-Wert" style="width:140px">
+    <button class="btn text" id="reset">Zurücksetzen</button>
+  </div>
+</div>
+<div class="card"><h3>Primär</h3><div class="tones" id="tP"></div></div>
+<div class="card"><h3>Sekundär</h3><div class="tones" id="tS"></div></div>
+<div class="card"><h3>Neutral</h3><div class="tones" id="tN"></div></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var PRESETS = [["Navy", "#1F3A5F"], ["Lila", "#6750A4"], ["Blau", "#1B6EF3"], ["Grün", "#2E7D32"], ["Orange", "#E8710A"], ["Rot", "#C0362C"], ["Petrol", "#00696D"], ["Pink", "#B02A6F"], ["Bernstein", "#8C5000"]];
+  var STEPS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 100];
+
+  function tonalPalette(hex, satScale) {
+    var hs = rgbToHsl(hexToRgb(hex)), out = [];
+    for (var i = 0; i < STEPS.length; i++) { out.push([STEPS[i], hslToHex(hs[0], Math.min(100, hs[1] * satScale), STEPS[i])]); }
+    return out;
+  }
+  function tones(sel, list) {
+    var h = "";
+    for (var i = 0; i < list.length; i++) {
+      h += '<button class="tone" style="background:' + list[i][1] + ";color:" + (list[i][0] > 50 ? "#000" : "#fff") + '" data-c="' + list[i][1] + '" title="' + list[i][1] + '">' + list[i][0] + "</button>";
+    }
+    $(sel).innerHTML = h;
+  }
+  function draw() {
+    var c = settings.accent, h = "", i, bs;
+    for (i = 0; i < PRESETS.length; i++) {
+      h += '<button class="sw" style="background:' + PRESETS[i][1] + '" data-c="' + PRESETS[i][1] + '" title="' + PRESETS[i][0] + '" aria-label="' + PRESETS[i][0] + '" aria-pressed="' + (PRESETS[i][1].toLowerCase() === c.toLowerCase() ? "true" : "false") + '"></button>';
+    }
+    $("#sw").innerHTML = h;
+    $("#hex").value = c.toUpperCase();
+    tones("#tP", tonalPalette(c, 1)); tones("#tS", tonalPalette(c, 0.35)); tones("#tN", tonalPalette(c, 0.08));
+  }
+  function set(c) { settings.accent = c; saveSettings(); draw(); }
+
+  $("#sw").onclick = function (e) { var b = closest(e.target, ".sw"); if (b) { set(b.getAttribute("data-c")); } };
+  $("#hex").onchange = function (e) {
+    var v = e.target.value.replace(/\s+/g, "");
+    if (v.charAt(0) !== "#") { v = "#" + v; }
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) { set(v.length === 4 ? "#" + v.slice(1).replace(/(.)/g, "$1$1") : v); }
+    else { toast("Ungültiger Hex-Wert"); draw(); }
+  };
+  $("#reset").onclick = function () { set("#1F3A5F"); };
+  document.querySelector("main").onclick = function (e) {
+    var t = closest(e.target, ".tone"); if (t) { copy(t.getAttribute("data-c").toUpperCase()); }
+  };
+  draw();
+})();
+</script>
+</body>
+</html>
