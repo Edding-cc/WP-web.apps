@@ -123,11 +123,8 @@
   /* ---------- Theme (Hell/Dunkel/Akzent) ---------- */
   var settings = assign({ theme: "system", oled: false, accent: "#1F3A5F" }, store.get("settings", {}));
   var T = {};
-  function isDark() {
-    if (settings.theme === "dark") { return true; }
-    if (settings.theme === "light") { return false; }
-    try { return !!(w.matchMedia && w.matchMedia("(prefers-color-scheme: dark)").matches); } catch (e) { return false; }
-  }
+  settings.theme = settings.theme === "dark" ? "dark" : "light";
+  function isDark() { return settings.theme === "dark"; }
   function applyTheme() {
     var dark = isDark(), t;
     if (dark) {
@@ -169,10 +166,11 @@
       ".sw{border:2px solid " + t.bd + "}.sw[aria-pressed=\"true\"]{outline:3px solid " + t.tx + ";outline-offset:2px}" +
       ".tone{box-shadow:inset 0 0 0 1px " + t.bd + "}" +
       "canvas.chart{background:" + t.sf2 + "}" +
+      "body.iconpage{background:" + t.ac + ";color:" + t.onac + "}" +
       ".pos-grid button{border:1px solid " + t.bd + ";background:" + t.sf + ";color:" + t.tx + "}" +
       ".pos-grid button[aria-pressed=\"true\"]{background:" + t.ac + ";color:" + t.onac + ";border-color:" + t.ac + "}";
-    var el = d.getElementById("theme");
-    if (!el) { el = d.createElement("style"); el.id = "theme"; d.getElementsByTagName("head")[0].appendChild(el); }
+    var el = d.getElementById("themecss");
+    if (!el) { el = d.createElement("style"); el.id = "themecss"; d.getElementsByTagName("head")[0].appendChild(el); }
     if (el.styleSheet) { el.styleSheet.cssText = css; } else { el.textContent = css; }
     var m = $('meta[name="theme-color"]'); if (m) { m.setAttribute("content", settings.accent); }
   }
