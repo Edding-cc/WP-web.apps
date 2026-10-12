@@ -15,9 +15,14 @@
 <main class="wrap">
 <div class="card">
   <h3>Darstellung</h3>
-  <div class="seg" id="theme"><button data-v="system">System</button><button data-v="light">Hell</button><button data-v="dark">Dunkel</button></div>
+  <div class="seg" id="themeSeg"><button data-v="light">Hell</button><button data-v="dark">Dunkel</button></div>
   <div class="switch" style="margin-top:8px"><span>OLED-Schwarz im Dunkelmodus (reiner schwarzer Hintergrund)</span><button class="tg" id="oled" aria-pressed="false" aria-label="OLED-Schwarz"></button></div>
   <p class="muted" style="font-size:14px;margin:4px 0 0">Die Akzentfarbe stellst du im Werkzeug <a href="../tools/palette/">Farbe &amp; Palette</a> ein.</p>
+</div>
+<div class="card">
+  <h3>Startbildschirm-Symbol</h3>
+  <p class="muted" style="font-size:14px;margin:0 0 10px">Zeigt das Symbol groß, bündig oben, links und rechts. Öffne die Seite und füge sie dann im Browsermenü zum Startbildschirm hinzu, damit die Kachel das Symbol zeigt. Die Farbe folgt deiner Akzentfarbe.</p>
+  <a class="btn tonal" href="icon/">Symbol anzeigen</a>
 </div>
 <div class="card">
   <h3>Daten</h3>
@@ -31,12 +36,12 @@
 (function () {
   "use strict";
   function draw() {
-    var bs = $$("#theme button"), i;
+    var bs = $$("#themeSeg button"), i;
     for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-v") === settings.theme ? "true" : "false"); }
     $("#oled").setAttribute("aria-pressed", settings.oled ? "true" : "false");
   }
   draw();
-  $("#theme").onclick = function (e) {
+  $("#themeSeg").onclick = function (e) {
     var b = closest(e.target, "button"); if (!b) { return; }
     settings.theme = b.getAttribute("data-v"); saveSettings(); draw();
   };
