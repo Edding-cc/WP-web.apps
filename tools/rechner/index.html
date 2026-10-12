@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Rechner · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Rechner</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="mode" style="margin-bottom:12px"><button data-m="calc">Rechner</button><button data-m="quick">Schnellrechnen</button></div>
+<div id="calcPane"></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var MATH_FN = {
+    sqrt: Math.sqrt, wurzel: Math.sqrt,
+    sin: function (x) { return Math.sin(x * Math.PI / 180); },
+    cos: function (x) { return Math.cos(x * Math.PI / 180); },
+    tan: function (x) { return Math.tan(x * Math.PI / 180); },
+    ln: Math.log, log: function (x) { return Math.log(x) / Math.LN10; },
+    abs: Math.abs, round: Math.round, rund: Math.round
+  };
+  var MATH_CONST = { pi: Math.PI, "π": Math.PI, e: Math.E };
+  function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  function CalcError(msg) { this.message = msg; }
+  CalcError.prototype = new Error();
+
+  function evaluate(src, vars) {
+    vars = vars || {};
+    var s = src.replace(/[×·]/g, "*").replace(/[÷:]/g, "/").replace(/[−–]/g, "-").replace(/√/g, "sqrt").replace(/\s+/g, "");
+    var i = 0;
+    function peek() { return s.charAt(i); }
+    function num() {
+      var m = /^(\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?/i.exec(s.slice(i));
+      if (!m) { return null; }
+      i += m[0].length;
+      return parseFloat(m[0].replace(",", "."));
+    }
+    function ident() {
+      var m = /^[a-zäöüπ]+/i.exec(s.slice(i));
+      if (!m) { return null; }
+      i += m[0].length;
+      return m[0].toLowerCase();
+    }
+    function expr() {
+      var v = term();
+      while (peek() === "+" || peek() === "-") {
+        var op = s.charAt(i++); var r = term();
+        v = op === "+" ? v + r : v - r;
+      }
+      return v;
+    }
+    function term() {
+      var v = unary();
+      for (;;) {
+        var c = peek();
+        if (c === "*" || c === "/") {
+          i++; var r = unary();
+          if (c === "/") { if (r === 0) { throw new CalcError("Division durch 0"); } v /= r; } else { v *= r; }
+        } else if (c === "(" || (c && /[a-zπ\d.,]/i.test(c))) { v *= power(); }
+        else { return v; }
+      }
+    }
+    function unary() {
+      if (peek() === "-") { i++; return -unary(); }
+      if (peek() === "+") { i++; return unary(); }
+      return power();
+    }
+    function power() {
+      var b = postfix();
+      if (peek() === "^") { i++; return Math.pow(b, unary()); }
+      return b;
+    }
+    function postfix() {
+      var v = primary();
+      while (peek() === "%" || peek() === "!") {
+        if (s.charAt(i++) === "%") { v /= 100; }
+        else {
+          if (v < 0 || v % 1 !== 0 || v > 170) { throw new CalcError("Ungültige Eingabe"); }
+          var f = 1; for (var k = 2; k <= v; k++) { f *= k; } v = f;
+        }
+      }
+      return v;
+    }
+    function primary() {
+      var n = num(); if (n != null) { return n; }
+      if (peek() === "(") { i++; var v = expr(); if (peek() === ")") { i++; } return v; }
+      var id = ident();
+      if (id != null) {
+        if (has(vars, id)) { return vars[id]; }
+        if (has(MATH_CONST, id)) { return MATH_CONST[id]; }
+        if (has(MATH_FN, id)) {
+          if (peek() === "(") { i++; var a = expr(); if (peek() === ")") { i++; } return MATH_FN[id](a); }
+          return MATH_FN[id](power());
+        }
+        throw new CalcError("Unbekannt: " + id);
+      }
+      throw new CalcError("Ungültige Eingabe");
+    }
+    if (!s) { throw new CalcError(""); }
+    var res = expr();
+    if (i < s.length) { throw new CalcError("Ungültige Eingabe"); }
+    if (!isFinite(res)) { throw new CalcError("Ergebnis zu groß"); }
+    return res;
+  }
+
+  function fmtNum(v) {
+    var a = Math.abs(v);
+    if (a >= 1e15 || (v !== 0 && a < 1e-9)) { return v.toExponential(8).replace(".", ","); }
+    var str = Number(v.toPrecision(14)).toFixed(12);
+    if (str.indexOf(".") >= 0) { str = str.replace(/0+$/, "").replace(/\.$/, ""); }
+    var neg = str.charAt(0) === "-"; if (neg) { str = str.slice(1); }
+    var p = str.split(".");
+    p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return (neg ? "-" : "") + p.join(",");
+  }
+
+  var pane = $("#calcPane");
+
+  function calcMode() {
+    var KEYS = ["(", ")", "%", "⌫", "C", "7", "8", "9", "÷", "√", "4", "5", "6", "×", "^", "1", "2", "3", "−", "π", "0", ",", "+/−", "+", "="];
+    var OPS = "÷×−+^%()√";
+    var kh = "";
+    for (var n = 0; n < KEYS.length; n++) {
+      var k = KEYS[n];
+      kh += '<button class="' + (k !== "+/−" && OPS.indexOf(k) >= 0 ? "op" : k === "=" ? "eq" : "") + '" data-k="' + k + '">' + k + "</button>";
+    }
+    pane.innerHTML =
+      '<div class="card"><div class="calc-display"><input id="expr" type="text" autocomplete="off" aria-label="Rechnung" placeholder="0"><div class="res" id="res"></div></div>' +
+      '<div class="keys">' + kh + "</div></div>" +
+      '<div class="card"><div class="row between"><h3 style="margin:0">Verlauf</h3><button class="btn text" id="clr">Verlauf löschen</button></div><div class="hist" id="hist"></div></div>';
+    var inp = $("#expr"), res = $("#res");
+    var hist = store.get("calc.hist", []);
+    function drawHist() {
+      var h = "";
+      for (var i = 0; i < hist.length; i++) {
+        h += '<div class="h" data-i="' + i + '" style="cursor:pointer"><span class="muted">' + esc(hist[i].e) + "</span><b>" + esc(hist[i].r) + "</b></div>";
+      }
+      $("#hist").innerHTML = h || "<p class='muted' style='margin:8px 0 0'>Noch nichts gerechnet.</p>";
+    }
+    drawHist();
+    function preview() {
+      try { res.textContent = inp.value ? "= " + fmtNum(evaluate(inp.value)) : ""; res.className = "res"; } catch (e) { res.textContent = ""; }
+    }
+    function commit() {
+      try {
+        var v = evaluate(inp.value), r = fmtNum(v);
+        hist.unshift({ e: inp.value, r: r }); hist = hist.slice(0, 50); store.set("calc.hist", hist); drawHist();
+        inp.value = String(v).replace(".", ","); res.textContent = "";
+      } catch (e) { res.textContent = e.message || "Ungültige Eingabe"; res.className = "res err"; }
+    }
+    pane.querySelector(".keys").onclick = function (e) {
+      var b = closest(e.target, "button"); if (!b) { return; }
+      var k = b.getAttribute("data-k");
+      if (k === "=") { commit(); }
+      else if (k === "C") { inp.value = ""; preview(); }
+      else if (k === "⌫") { inp.value = inp.value.slice(0, -1); preview(); }
+      else if (k === "+/−") {
+        var v = inp.value;
+        inp.value = v.indexOf("−(") === 0 && v.charAt(v.length - 1) === ")" ? v.slice(2, -1) : v ? "−(" + v + ")" : "−";
+        preview();
+      }
+      else if (k === "√") { inp.value += "√("; preview(); }
+      else { inp.value += k; preview(); }
+    };
+    inp.oninput = preview;
+    inp.onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); commit(); } };
+    $("#hist").onclick = function (e) {
+      var dv = closest(e.target, "[data-i]");
+      if (dv) { inp.value = hist[parseInt(dv.getAttribute("data-i"), 10)].e; preview(); }
+    };
+    $("#clr").onclick = function () { hist = []; store.set("calc.hist", hist); drawHist(); };
+  }
+
+  function quickMode() {
+    pane.innerHTML =
+      '<div class="hint">Gib eine ganze Rechnung ein und schreibe „c“ an die Stelle, an der die eingegebene Zahl eingesetzt wird (z. B. „c × 19 + 5“). Danach wird jede Zahl, die du eingibst und bestätigst, für c eingesetzt und sofort berechnet. Der Verlauf sammelt sich unten.</div>' +
+      '<div class="card"><label class="fld" for="qf">Rechnung mit c</label><input id="qf" type="text" autocomplete="off" placeholder="z. B. c × 1,19" class="mono">' +
+      '<label class="fld" for="qc">Zahl für c</label>' +
+      '<div class="row" style="flex-wrap:nowrap"><input id="qc" type="text" autocomplete="off" placeholder="Zahl eingeben und bestätigen" class="mono"><button class="btn" id="qgo">=</button></div>' +
+      '<p id="qerr" class="err" style="margin:8px 0 0;min-height:1.5em"></p></div>' +
+      '<div class="card"><div class="row between"><h3 style="margin:0">Verlauf</h3><button class="btn text" id="qclr">Verlauf löschen</button></div><div class="hist" id="qhist"></div></div>';
+    var f = $("#qf"), c = $("#qc");
+    f.value = store.get("quick.formula", "");
+    var hist = store.get("quick.hist", []);
+    function draw() {
+      var h = "";
+      for (var i = 0; i < hist.length; i++) { h += '<div class="h"><span class="muted">c = ' + esc(hist[i].c) + "</span><b>" + esc(hist[i].r) + "</b></div>"; }
+      $("#qhist").innerHTML = h || "<p class='muted' style='margin:8px 0 0'>Noch nichts gerechnet.</p>";
+    }
+    draw();
+    f.oninput = function () { store.set("quick.formula", f.value); };
+    function go() {
+      $("#qerr").textContent = "";
+      if (!f.value.replace(/\s+/g, "")) { $("#qerr").textContent = "Rechnung eingeben"; f.focus(); return; }
+      if (!/c/i.test(f.value.replace(/cos/gi, ""))) { $("#qerr").textContent = "Die Rechnung enthält kein „c“."; return; }
+      try {
+        var cv = evaluate(c.value);
+        var r = fmtNum(evaluate(f.value, { c: cv }));
+        hist.unshift({ c: fmtNum(cv), r: r }); hist = hist.slice(0, 100); store.set("quick.hist", hist); draw();
+        c.value = ""; c.focus();
+      } catch (e) { $("#qerr").textContent = e.message || "Ungültige Eingabe"; }
+    }
+    $("#qgo").onclick = go;
+    c.onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); go(); } };
+    $("#qclr").onclick = function () { hist = []; store.set("quick.hist", hist); draw(); };
+  }
+
+  function setMode(m) {
+    store.set("calc.mode", m);
+    var bs = $$("#mode button");
+    for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-m") === m ? "true" : "false"); }
+    if (m === "calc") { calcMode(); } else { quickMode(); }
+  }
+  $("#mode").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setMode(b.getAttribute("data-m")); } };
+  setMode(store.get("calc.mode", "calc") === "quick" ? "quick" : "calc");
+})();
+</script>
+</body>
+</html>
