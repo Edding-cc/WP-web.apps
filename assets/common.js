@@ -121,9 +121,9 @@
   }
 
   /* ---------- Theme (Hell/Dunkel/Akzent) ---------- */
-  var settings = assign({ theme: "system", oled: false, accent: "#1F3A5F" }, store.get("settings", {}));
+  var settings = assign({ theme: "dark", oled: false, accent: "#1F3A5F" }, store.get("settings", {}));
   var T = {};
-  settings.theme = settings.theme === "dark" ? "dark" : "light";
+  settings.theme = settings.theme === "light" ? "light" : "dark";
   function isDark() { return settings.theme === "dark"; }
   function applyTheme() {
     var dark = isDark(), t;
@@ -166,7 +166,7 @@
       ".sw{border:2px solid " + t.bd + "}.sw[aria-pressed=\"true\"]{outline:3px solid " + t.tx + ";outline-offset:2px}" +
       ".tone{box-shadow:inset 0 0 0 1px " + t.bd + "}" +
       "canvas.chart{background:" + t.sf2 + "}" +
-      "body.iconpage{background:" + t.ac + ";color:" + t.onac + "}" +
+      "#iconOv{background:" + settings.accent + ";color:" + (luminance(settings.accent) > 0.4 ? "#111111" : "#ffffff") + "}" +
       ".pos-grid button{border:1px solid " + t.bd + ";background:" + t.sf + ";color:" + t.tx + "}" +
       ".pos-grid button[aria-pressed=\"true\"]{background:" + t.ac + ";color:" + t.onac + ";border-color:" + t.ac + "}";
     var el = d.getElementById("themecss");
