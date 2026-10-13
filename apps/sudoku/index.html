@@ -106,7 +106,7 @@
   }
   function save() { store.set("sudoku", st); }
   function build() {
-    var h = "", r, c, W = Math.min($("#sBoard").parentNode.clientWidth - 32, 440), cs = Math.floor((W - 6) / 9);
+    var h = "", r, c, W = Math.min(contentWidth(), 440), cs = Math.floor((W - 6) / 9);
     for (r = 0; r < 9; r++) {
       h += "<tr>";
       for (c = 0; c < 9; c++) {

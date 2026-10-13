@@ -56,7 +56,7 @@
     return o;
   }
   function render() {
-    var W = Math.min($("#pz").parentNode.clientWidth - 32, 420), gap = 5, s = (W - gap * (n + 1)) / n, h = "", i;
+    var W = Math.min(contentWidth(), 420), gap = 5, s = (W - gap * (n + 1)) / n, h = "", i;
     $("#pz").style.width = $("#pz").style.height = W + "px";
     for (i = 0; i < n * n; i++) {
       if (!g[i]) { continue; }

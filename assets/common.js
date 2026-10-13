@@ -260,6 +260,14 @@
     });
   }
 
+  /* Nutzbare Inhaltsbreite für Spielfelder (Breite von <main> ohne Innenabstand).
+     Fallback auf die Fensterbreite, falls <main> wie im alten IE 0 meldet. */
+  function contentWidth() {
+    var m = d.getElementsByTagName("main")[0], cw = m ? m.clientWidth : 0;
+    if (!cw) { cw = Math.min(d.documentElement.clientWidth || w.innerWidth || 352, 760); }
+    return Math.max(160, cw - 32);
+  }
+
   /* ---------- Hilfen für Zahlen und Zeiten ---------- */
   function pad(n, len) { n = String(n); while (n.length < (len || 2)) { n = "0" + n; } return n; }
   /* ms → "1:02:03" bzw. "02:03", mit tenths ",4" */
@@ -399,7 +407,7 @@
   w.POS = POS; w.fpsCfg = fpsCfg; w.fpsMeter = fpsMeter; w.applyOverlay = applyOverlay;
   w.TOOLS = TOOLS; w.toolUrl = toolUrl;
   w.themeCss = themeCss; w.rnd = rnd; w.shuffle = shuffle; w.secureRandom = secureRandom; w.randU32 = randU32;
-  w.onPress = onPress; w.onSwipe = onSwipe; w.onArrows = onArrows;
+  w.onPress = onPress; w.onSwipe = onSwipe; w.onArrows = onArrows; w.contentWidth = contentWidth;
   w.pad = pad; w.fmtDur = fmtDur; w.parseNum = parseNum; w.fmtG = fmtG; w.beep = beep;
 
   applyTheme();

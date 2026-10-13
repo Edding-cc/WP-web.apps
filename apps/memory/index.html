@@ -61,7 +61,7 @@
     for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-p") === players ? "true" : "false"); }
   }
   function layout() {
-    var c = cols(), rows = deck.length / c, W = Math.min($("#mg").parentNode.clientWidth - 32, 440),
+    var c = cols(), rows = deck.length / c, W = Math.min(contentWidth(), 440),
         Hmax = (window.innerHeight || 640) - 300, gap = 6, s = Math.floor(Math.min((W - gap * c) / c, Math.max(56, (Hmax - gap * rows) / rows))), h = "", i;
     for (i = 0; i < deck.length; i++) {
       h += '<div class="k" data-i="' + i + '" style="width:' + s + "px;height:" + s + "px;margin:0 " + gap / 2 + "px " + gap + 'px"></div>';
