@@ -28,6 +28,19 @@
 <li><b>Akku, Taschenlampe, USB, Bluetooth, Seriell</b>: Der Browser des Windows Phones bietet diese Schnittstellen nicht.</li>
 <li><b>Speedtest, Sensoren, Netzwerk</b>: noch nicht umgesetzt.</li>
 </ul></div>
+<h2>Startbildschirm-Symbol</h2>
+<div class="card">
+<p class="muted" style="font-size:14px;margin:0 0 10px">Zeigt das Symbol groß, bündig oben, links und rechts. Antippen schließt es wieder. Lass es angezeigt und füge die Seite dann im Browsermenü zum Startbildschirm hinzu, damit die Kachel das Symbol zeigt. Die Farbe folgt deiner Akzentfarbe.</p>
+<button class="btn tonal" id="iconBtn">Symbol anzeigen</button>
+</div>
+<div id="iconOv"><div class="iconbox">
+<svg viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-label="Systemtools">
+<rect x="22" y="22" width="26" height="26" rx="5"/>
+<rect x="52" y="22" width="26" height="26" rx="5"/>
+<rect x="22" y="52" width="26" height="26" rx="5"/>
+<circle cx="65" cy="65" r="13"/>
+</svg>
+</div></div>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -43,6 +56,9 @@
     }
     $("#noHit").hidden = n > 0;
   };
+  var ov = $("#iconOv");
+  $("#iconBtn").onclick = function () { ov.className = "show"; };
+  ov.onclick = function () { ov.className = ""; };
 })();
 </script>
 </body>
