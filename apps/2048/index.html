@@ -95,7 +95,7 @@
     return hslToHex((acHue + (k - 1) * 28) % 360, 55, l);
   }
   function render(pops) {
-    var W = Math.min(board.parentNode.clientWidth - 32, 420), gap = Math.round(W / 40), s = (W - gap * (N + 1)) / N, h = "", i, v, x, y, bg;
+    var W = Math.min(contentWidth(), 420), gap = Math.round(W / 40), s = (W - gap * (N + 1)) / N, h = "", i, v, x, y, bg;
     board.style.width = board.style.height = W + "px";
     for (i = 0; i < N * N; i++) {
       x = gap + (i % N) * (s + gap); y = gap + Math.floor(i / N) * (s + gap); v = st.g[i];

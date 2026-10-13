@@ -74,7 +74,7 @@
     $("#tMsg").textContent = over ? $("#tMsg").textContent : (mode === "two" ? turn + " ist dran" : turn === "X" ? "Du bist dran" : "Computer denkt …");
   }
   function render(win) {
-    var W = Math.min($("#tt").parentNode.clientWidth - 32, 360), gap = 8, s = Math.floor((W - gap * 3) / 3), h = "", i;
+    var W = Math.min(contentWidth(), 360), gap = 8, s = Math.floor((W - gap * 3) / 3), h = "", i;
     for (i = 0; i < 9; i++) {
       h += '<div class="f ' + b[i] + (win.indexOf(i) >= 0 ? " win" : "") + '" data-i="' + i + '" style="width:' + s + "px;height:" + s + "px;line-height:" + s + "px;font-size:" + Math.round(s * 0.6) +
         "px;margin:0 " + gap / 2 + "px " + gap + 'px">' + (b[i] === "X" ? "✕" : b[i] === "O" ? "○" : "") + "</div>";

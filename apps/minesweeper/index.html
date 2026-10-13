@@ -52,7 +52,7 @@
     return out;
   }
   function size() {
-    var L = LV[lv], avail = board.parentNode.clientWidth - 32;
+    var L = LV[lv], avail = contentWidth();
     return Math.max(18, Math.min(40, Math.floor(avail / L.w)));
   }
   function layout() {

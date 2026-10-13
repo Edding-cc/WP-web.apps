@@ -43,7 +43,7 @@
     $("#sBest").textContent = best;
   }
   function size() {
-    var W = Math.min($("#sBoard").parentNode.clientWidth - 32, 420), r = window.devicePixelRatio || 1;
+    var W = Math.min(contentWidth(), 420), r = window.devicePixelRatio || 1;
     px = W / G;
     cv.style.width = cv.style.height = W + "px"; $("#sBoard").style.width = W + "px";
     cv.width = cv.height = Math.round(W * r);

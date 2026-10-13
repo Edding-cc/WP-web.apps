@@ -4,6 +4,8 @@
 * { -webkit-box-sizing: border-box; box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; padding: 0; }
+/* IE kennt <main> nicht und stellt es inline dar (clientWidth = 0) */
+main { display: block; }
 body { font: 16px/1.5 "Segoe WP", "Segoe UI", Roboto, Arial, sans-serif; background: #111316; color: #e6e8eb; -ms-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button, a, .tool { -ms-touch-action: manipulation; touch-action: manipulation; }
