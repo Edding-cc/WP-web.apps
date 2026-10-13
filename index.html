@@ -13,20 +13,56 @@
 <body>
 <header class="top"><div class="wrap"><h1>Systemtools</h1><a class="iconbtn" href="einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
 <main class="wrap">
-<p class="sub">Werkzeuge für dein System, direkt im Browser</p>
+<p class="sub">Werkzeuge, Alltagshelfer und Spiele, direkt im Browser</p>
 <input class="search" id="q" type="search" placeholder="Suchen …" aria-label="Werkzeuge durchsuchen">
 <div id="toolList">
+<div class="home-group"><h2>Werkzeuge</h2>
 <a class="tool" href="tools/rechner/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h4"/></svg></div><div class="tx"><b>Rechner</b><span class="d">Ausdrucksrechner mit Tastenfeld und Schnellrechnen</span></div></a>
 <a class="tool" href="tools/fps/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div><div class="tx"><b>Bildrate (FPS)</b><span class="d">Bildrate und Bildwiederholrate messen, mit Overlay</span></div></a>
 <a class="tool" href="tools/geraeteinfo/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><div class="tx"><b>Geräteinfo</b><span class="d">Bildschirm, Browser, Grafik und Speicher</span></div></a>
 <a class="tool" href="tools/palette/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/><circle cx="8.5" cy="7.5" r="1"/><circle cx="6.5" cy="12.5" r="1"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7h2A5.6 5.6 0 0 0 22 11c0-5-4.5-9-10-9z"/></svg></div><div class="tx"><b>Farbe & Palette</b><span class="d">Akzentfarbe wählen und Farbtöne erzeugen</span></div></a>
 <a class="tool" href="tools/verknuepfungen/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.8 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div><div class="tx"><b>Verknüpfungen</b><span class="d">Links und Texte sammeln</span></div></a>
 </div>
+<!--apps-->
+<div class="home-group"><h2>Spiele</h2>
+<a class="tool" href="apps/minesweeper/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v1M3 13h1M20 13h1M5.6 6.6l1.4 1.4M18.4 6.6L17 8"/></svg></div><div class="tx"><b>Minesweeper</b><span class="d">Minen finden, mit Flaggenmodus für Touch</span></div></a>
+<a class="tool" href="apps/2048/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></div><div class="tx"><b>2048</b><span class="d">Zahlen per Wischen verschmelzen</span></div></a>
+<a class="tool" href="apps/snake/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h10"/><circle cx="19" cy="7" r="1"/></svg></div><div class="tx"><b>Snake</b><span class="d">Klassiker mit Wischen und Touch-Tasten</span></div></a>
+<a class="tool" href="apps/tetris/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v6h-5v10H9V10H4z"/></svg></div><div class="tx"><b>Tetris</b><span class="d">Fallende Blöcke mit Touch-Tasten</span></div></a>
+<a class="tool" href="apps/sudoku/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div><div class="tx"><b>Sudoku</b><span class="d">Drei Schwierigkeitsstufen, Notizen und Tipps</span></div></a>
+<a class="tool" href="apps/memory/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="10" height="14" rx="2"/><path d="M9 6V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg></div><div class="tx"><b>Memory</b><span class="d">Paare finden, allein oder zu zweit</span></div></a>
+<a class="tool" href="apps/schiebepuzzle/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/><path d="M15 15h3v3h-3z"/></svg></div><div class="tx"><b>Schiebepuzzle</b><span class="d">Zahlen in die richtige Reihenfolge schieben</span></div></a>
+<a class="tool" href="apps/tictactoe/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div><div class="tx"><b>Tic-Tac-Toe</b><span class="d">Gegen den Computer oder zu zweit</span></div></a>
+</div>
+<div class="home-group"><h2>Alltag</h2>
+<a class="tool" href="apps/notizen/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div><div class="tx"><b>Notizen</b><span class="d">Notizen schreiben, anheften und durchsuchen</span></div></a>
+<a class="tool" href="apps/todo/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></div><div class="tx"><b>To-do-Liste</b><span class="d">Aufgaben mit Priorität abhaken</span></div></a>
+<a class="tool" href="apps/stoppuhr/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="8"/><path d="M12 10v4l2 2M10 2h4M12 2v4"/></svg></div><div class="tx"><b>Stoppuhr</b><span class="d">Zeit messen mit Runden</span></div></a>
+<a class="tool" href="apps/timer/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12M7 2v4l5 6 5-6V2M7 22v-4l5-6 5 6v4"/></svg></div><div class="tx"><b>Timer &amp; Pomodoro</b><span class="d">Countdown und Fokus-Intervalle</span></div></a>
+<a class="tool" href="apps/wuerfel/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="16" cy="16" r="1.2"/></svg></div><div class="tx"><b>Würfel &amp; Münze</b><span class="d">Würfeln, Münzwurf und Zufallszahlen</span></div></a>
+<a class="tool" href="apps/passwort/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L20 3M16 7l3 3M18 5l2 2"/></svg></div><div class="tx"><b>Passwortgenerator</b><span class="d">Sichere Passwörter und PINs, mit Prüfung</span></div></a>
+<a class="tool" href="apps/einheiten/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></div><div class="tx"><b>Einheitenrechner</b><span class="d">Länge, Gewicht, Daten, Temperatur und mehr</span></div></a>
+<a class="tool" href="apps/prozent/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></div><div class="tx"><b>Prozentrechner</b><span class="d">Prozente, Veränderung und Mehrwertsteuer</span></div></a>
+<a class="tool" href="apps/trinkgeld/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></div><div class="tx"><b>Trinkgeldrechner</b><span class="d">Trinkgeld berechnen und Rechnung teilen</span></div></a>
+<a class="tool" href="apps/zaehler/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12h8M12 8v8"/></svg></div><div class="tx"><b>Zähler</b><span class="d">Mehrere Strichlisten zum Antippen</span></div></a>
+<a class="tool" href="apps/datum/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 15h2"/></svg></div><div class="tx"><b>Datum &amp; Fristen</b><span class="d">Tage zählen, Fristen, Kalenderwoche</span></div></a>
+<a class="tool" href="apps/text/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg></div><div class="tx"><b>Textwerkzeuge</b><span class="d">Zeichen zählen, Base64, URL, SHA-256</span></div></a>
+</div>
+<div class="home-group"><h2>Technik & Lernen</h2>
+<a class="tool" href="apps/subnetz/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-4h14v4"/></svg></div><div class="tx"><b>Subnetzrechner</b><span class="d">IPv4-Netze, Masken und Aufteilung</span></div></a>
+<a class="tool" href="apps/zahlensysteme/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h2v6M5 10h4M17 4a2 2 0 0 0-2 2v2a2 2 0 0 0 4 0V6a2 2 0 0 0-2-2zM7 14a2 2 0 0 0-2 2v2a2 2 0 0 0 4 0v-2a2 2 0 0 0-2-2zM15 14h2v6M15 20h4"/></svg></div><div class="tx"><b>Zahlensysteme</b><span class="d">Binär, Hex, Dezimal umrechnen und üben</span></div></a>
+<a class="tool" href="apps/ports/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg></div><div class="tx"><b>Ports</b><span class="d">Bekannte TCP- und UDP-Ports nachschlagen</span></div></a>
+<a class="tool" href="apps/lernkarten/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div><div class="tx"><b>Lernkarten Netzwerk</b><span class="d">OSI-Modell, Protokolle, Adressen üben</span></div></a>
+<a class="tool" href="apps/befehle/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div><div class="tx"><b>Befehle</b><span class="d">Spickzettel für Windows und Linux</span></div></a>
+<a class="tool" href="apps/buchstabieren/"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg></div><div class="tx"><b>Buchstabieren &amp; Morse</b><span class="d">NATO-Alphabet, deutsche Tafel, Morsecode</span></div></a>
+</div>
+<!--/apps-->
+</div>
 <p class="muted" id="noHit" hidden>Kein Werkzeug gefunden.</p>
 <h2>Nicht enthalten</h2>
 <div class="card"><ul class="nope">
 <li><b>Akku, Taschenlampe, USB, Bluetooth, Seriell</b>: Der Browser des Windows Phones bietet diese Schnittstellen nicht.</li>
-<li><b>Speedtest, Sensoren, Netzwerk</b>: noch nicht umgesetzt.</li>
+<li><b>Speedtest, Sensoren, Netzwerkscan</b>: noch nicht umgesetzt.</li>
 </ul></div>
 <h2>Startbildschirm-Symbol</h2>
 <div class="card">
@@ -46,7 +82,7 @@
 <div class="toast" id="toast" role="status"><span></span></div>
 <script>
 (function () {
-  var list = $$("#toolList .tool");
+  var list = $$("#toolList .tool"), groups = $$("#toolList .home-group");
   $("#q").oninput = function () {
     var q = this.value.replace(/^\s+|\s+$/g, "").toLowerCase(), n = 0, i, hit;
     for (i = 0; i < list.length; i++) {
@@ -54,6 +90,7 @@
       list[i].style.display = hit ? "" : "none";
       if (hit) { n++; }
     }
+    for (i = 0; i < groups.length; i++) { groups[i].style.display = $$(".tool", groups[i]).filter(function (a) { return a.style.display !== "none"; }).length ? "" : "none"; }
     $("#noHit").hidden = n > 0;
   };
   var ov = $("#iconOv");

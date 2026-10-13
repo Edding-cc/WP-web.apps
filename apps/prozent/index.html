@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Prozentrechner · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.pc .g2 input { font-family: Consolas, "Courier New", monospace; }
+.pc .result { margin-top: 8px; padding: 8px 12px; }
+.pc .result b { font-size: 22px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Prozentrechner</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="pc">
+<div class="card"><h3>Prozentwert: p % von G</h3>
+<div class="g2"><div><label class="fld">p (%)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="a1"></div><div><label class="fld">G (Grundwert)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="a2"></div></div>
+<div class="result" id="ra"></div></div>
+<div class="card"><h3>Prozentsatz: W ist wie viel % von G?</h3>
+<div class="g2"><div><label class="fld">W (Anteil)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="b1"></div><div><label class="fld">G (Grundwert)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="b2"></div></div>
+<div class="result" id="rb"></div></div>
+<div class="card"><h3>Grundwert: W sind p %, wie viel sind 100 %?</h3>
+<div class="g2"><div><label class="fld">W (Anteil)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="c1"></div><div><label class="fld">p (%)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="c2"></div></div>
+<div class="result" id="rc"></div></div>
+<div class="card"><h3>Veränderung von A nach B</h3>
+<div class="g2"><div><label class="fld">A (alt)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="d1"></div><div><label class="fld">B (neu)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="d2"></div></div>
+<div class="result" id="rd"></div></div>
+<div class="card"><h3>Auf- und Abschlag: G ± p %</h3>
+<div class="g2"><div><label class="fld">G (Grundwert)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="e1"></div><div><label class="fld">p (%)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="e2"></div></div>
+<div class="result" id="re"></div></div>
+<div class="card"><h3>Mehrwertsteuer</h3>
+<div class="chips" id="vRate"><button data-r="19">19 %</button><button data-r="7">7 %</button><button data-r="0">eigener Satz</button></div>
+<div class="g2"><div><label class="fld">Betrag</label><input type="text" inputmode="decimal" autocomplete="off" data-k="f1"></div><div><label class="fld">Steuersatz (%)</label><input type="text" inputmode="decimal" autocomplete="off" data-k="f2"></div></div>
+<div class="seg mt" id="vDir"><button data-d="net">Betrag ist netto</button><button data-d="gross">Betrag ist brutto</button></div>
+<div class="result" id="rf"></div></div>
+<p class="muted" style="font-size:13px">19 % und 7 % sind der Regel- und der ermäßigte Satz in Deutschland. Angaben ohne Gewähr.</p>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var v = assign({ f2: "19", dir: "net" }, store.get("pct", {}));
+  function n(k) { return parseNum(v[k]); }
+  function out(id, html) { $("#" + id).innerHTML = html || '<span class="muted">Werte eingeben</span>'; }
+  function ok() { for (var i = 0; i < arguments.length; i++) { if (isNaN(arguments[i])) { return false; } } return true; }
+  function calc() {
+    var a1 = n("a1"), a2 = n("a2"), b1 = n("b1"), b2 = n("b2"), c1 = n("c1"), c2 = n("c2"), d1 = n("d1"), d2 = n("d2"), e1 = n("e1"), e2 = n("e2"), f1 = n("f1"), f2 = n("f2");
+    out("ra", ok(a1, a2) ? "<b>" + fmtG(a2 * a1 / 100) + "</b> <span class='muted'>(" + fmtG(a1) + " % von " + fmtG(a2) + ")</span>" : "");
+    out("rb", ok(b1, b2) ? (b2 === 0 ? "<span class='err'>G darf nicht 0 sein</span>" : "<b>" + fmtG(b1 / b2 * 100) + " %</b>") : "");
+    out("rc", ok(c1, c2) ? (c2 === 0 ? "<span class='err'>p darf nicht 0 sein</span>" : "<b>" + fmtG(c1 * 100 / c2) + "</b> <span class='muted'>= 100 %</span>") : "");
+    out("rd", ok(d1, d2) ? (d1 === 0 ? "<span class='err'>A darf nicht 0 sein</span>" : "<b>" + (d2 >= d1 ? "+" : "") + fmtG((d2 - d1) / Math.abs(d1) * 100) + " %</b> <span class='muted'>(Differenz " + (d2 >= d1 ? "+" : "") + fmtG(d2 - d1) + ")</span>") : "");
+    out("re", ok(e1, e2) ? "+ " + fmtG(e2) + " %: <b>" + fmtG(e1 * (1 + e2 / 100)) + "</b><br>− " + fmtG(e2) + " %: <b>" + fmtG(e1 * (1 - e2 / 100)) + "</b>" : "");
+    if (ok(f1, f2)) {
+      var net = v.dir === "net" ? f1 : f1 / (1 + f2 / 100), tax = net * f2 / 100;
+      out("rf", "Netto: <b>" + nf(net, 2) + "</b><br>MwSt " + fmtG(f2) + " %: <b>" + nf(tax, 2) + "</b><br>Brutto: <b>" + nf(net + tax, 2) + "</b>");
+    } else { out("rf", ""); }
+    var bs = $$("#vRate button"), i;
+    for (i = 0; i < bs.length; i++) { var r = bs[i].getAttribute("data-r"); bs[i].setAttribute("aria-pressed", (r === "0" ? ["19", "7"].indexOf(String(v.f2)) < 0 : r === String(v.f2)) ? "true" : "false"); }
+    bs = $$("#vDir button");
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-d") === v.dir ? "true" : "false"); }
+    store.set("pct", v);
+  }
+  var ins = $$(".pc input[data-k]");
+  for (var i = 0; i < ins.length; i++) {
+    ins[i].value = v[ins[i].getAttribute("data-k")] || "";
+    ins[i].oninput = ins[i].onkeyup = function () { v[this.getAttribute("data-k")] = this.value; calc(); };
+  }
+  $("#vRate").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    var r = b.getAttribute("data-r");
+    if (r === "0") { $("[data-k=f2]").focus(); return; }
+    v.f2 = r; $("[data-k=f2]").value = r; calc();
+  };
+  $("#vDir").onclick = function (e) { var b = closest(e.target, "button"); if (b) { v.dir = b.getAttribute("data-d"); calc(); } };
+  calc();
+})();
+</script>
+</body>
+</html>

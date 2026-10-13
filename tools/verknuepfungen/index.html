@@ -53,7 +53,7 @@
       if (q && (it.name + " " + it.value).toLowerCase().indexOf(q) < 0) { continue; }
       n++;
       t = it.type === "tool" ? toolById(it.value) : null;
-      sub = it.type === "tool" ? (t ? ROOT + "tools/" + t.id + "/" : "Werkzeug fehlt") : it.value;
+      sub = it.type === "tool" ? (t ? toolUrl(t) : "Werkzeug fehlt") : it.value;
       h += '<div class="list-item"><div class="grow"><b>' + esc(it.name) + '</b> <span class="badge">' + LABEL[it.type] + "</span><small>" + esc(sub) + "</small></div>" +
         '<button class="btn tonal" data-a="use" data-i="' + i + '">' + (it.type === "text" ? "Kopieren" : "Öffnen") + "</button>" +
         '<button class="btn text" data-a="del" data-i="' + i + '" aria-label="Löschen">✕</button></div>';
@@ -88,7 +88,7 @@
       return;
     }
     if (it.type === "text") { copy(it.value); }
-    else if (it.type === "tool") { t = toolById(it.value); if (t) { location.href = ROOT + "tools/" + t.id + "/"; } }
+    else if (it.type === "tool") { t = toolById(it.value); if (t) { location.href = toolUrl(t); } }
     else { window.open(it.value, "_blank"); }
   };
 })();

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Würfel & Münze · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#dice { font-size: 0; text-align: center; min-height: 80px; -ms-touch-action: manipulation; touch-action: manipulation; cursor: pointer; }
+#dice svg { width: 72px; height: 72px; margin: 4px; vertical-align: top; }
+#dice svg.roll, #coin.roll { -ms-animation: shake .35s; animation: shake .35s; }
+@-ms-keyframes shake { 0% { -ms-transform: rotate(0); } 30% { -ms-transform: rotate(-20deg); } 60% { -ms-transform: rotate(15deg); } 100% { -ms-transform: rotate(0); } }
+@keyframes shake { 0% { transform: rotate(0); } 30% { transform: rotate(-20deg); } 60% { transform: rotate(15deg); } 100% { transform: rotate(0); } }
+#coin { width: 120px; height: 120px; border-radius: 50%; margin: 4px auto 12px; text-align: center; line-height: 120px; font-size: 22px; font-weight: 700; cursor: pointer; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Würfel & Münze</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="wMode" style="margin-bottom:12px"><button data-m="dice">Würfel</button><button data-m="coin">Münze</button><button data-m="num">Zufallszahl</button></div>
+<div id="pDice">
+<div class="card">
+<label class="fld">Anzahl Würfel</label><div class="chips" id="wN"></div>
+<label class="fld">Seiten</label><div class="chips" id="wS"></div>
+<div id="dice" class="mt"></div>
+<div class="center"><span class="big" id="wSum">–</span><div class="muted" id="wSumL">Summe</div></div>
+</div>
+<div class="ctl c2"><button id="wRoll" class="ac">Würfeln</button><button id="wClr" class="tonal">Verlauf leeren</button></div>
+<div class="card"><h3>Verlauf</h3><div id="wHist" class="mono" style="font-size:14px"></div></div>
+</div>
+<div id="pCoin" hidden>
+<div class="card center"><div id="coin">?</div><div class="stats"><div><b id="cK">0</b><span>Kopf</span></div><div><b id="cZ">0</b><span>Zahl</span></div></div></div>
+<div class="ctl c2"><button id="cFlip" class="ac">Werfen</button><button id="cClr" class="tonal">Zähler löschen</button></div>
+</div>
+<div id="pNum" hidden>
+<div class="card">
+<div class="g2"><div><label class="fld" for="rMin">Von</label><input type="number" id="rMin" value="1"></div><div><label class="fld" for="rMax">Bis</label><input type="number" id="rMax" value="100"></div></div>
+<label class="fld" for="rCnt">Anzahl Zahlen</label><input type="number" id="rCnt" value="1" min="1" max="100">
+<div class="switch"><span>Ohne Wiederholung (z. B. Lose ziehen)</span><button class="tg" id="rUniq" aria-pressed="false" aria-label="Ohne Wiederholung"></button></div>
+<div class="result center"><div class="big" id="rOut">–</div></div>
+</div>
+<div class="ctl c2"><button id="rGo" class="ac">Ziehen</button><button id="rCopy" class="tonal">Kopieren</button></div>
+</div>
+<p class="muted" style="font-size:13px" id="wSrc"></p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var SIDES = [4, 6, 8, 10, 12, 20, 100], cfg = assign({ n: 2, s: 6, mode: "dice", k: 0, z: 0 }, store.get("dice", {})), hist = store.get("dice.hist", []);
+  var PIPS = { 1: [[50, 50]], 2: [[28, 28], [72, 72]], 3: [[28, 28], [50, 50], [72, 72]], 4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+    5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]], 6: [[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]] };
+  themeCss(function (t) { return "#dice .bg{fill:" + t.ac + "}#dice .fg{fill:" + t.onac + "}#coin{background:" + t.ac + ";color:" + t.onac + "}"; });
+  $("#wSrc").textContent = secureRandom ? "Zufall: kryptografischer Zufallsgenerator des Browsers (crypto/msCrypto)." : "Hinweis: Dieser Browser bietet keinen kryptografischen Zufall, es wird Math.random() verwendet.";
+
+  function save() { store.set("dice", cfg); }
+  function chips() {
+    var h = "", i;
+    for (i = 1; i <= 6; i++) { h += '<button data-v="' + i + '" aria-pressed="' + (cfg.n === i) + '">' + i + "</button>"; }
+    $("#wN").innerHTML = h; h = "";
+    for (i = 0; i < SIDES.length; i++) { h += '<button data-v="' + SIDES[i] + '" aria-pressed="' + (cfg.s === SIDES[i]) + '">W' + SIDES[i] + "</button>"; }
+    $("#wS").innerHTML = h;
+  }
+  function die(v, s, anim) {
+    var h = '<svg viewBox="0 0 100 100"' + (anim ? ' class="roll"' : "") + ">";
+    if (s === 6) {
+      h += '<rect class="bg" x="4" y="4" width="92" height="92" rx="18"/>';
+      for (var i = 0; i < PIPS[v].length; i++) { h += '<circle class="fg" cx="' + PIPS[v][i][0] + '" cy="' + PIPS[v][i][1] + '" r="9"/>'; }
+    } else {
+      var shape = s === 4 ? '<path class="bg" d="M50 6l44 84H6z"/>' : s === 8 ? '<path class="bg" d="M50 4l44 46-44 46L6 50z"/>' :
+        s === 20 || s === 12 ? '<path class="bg" d="M50 4l40 23v46L50 96 10 73V27z"/>' : '<rect class="bg" x="6" y="6" width="88" height="88" rx="44"/>';
+      h += shape + '<text class="fg" x="50" y="' + (s === 4 ? 74 : 62) + '" text-anchor="middle" font-size="' + (v > 99 ? 28 : 34) + '" font-weight="700" font-family="Segoe WP,Segoe UI,Arial">' + v + "</text>";
+    }
+    return h + "</svg>";
+  }
+  function roll() {
+    var r = [], sum = 0, h = "", i;
+    for (i = 0; i < cfg.n; i++) { r.push(rnd(cfg.s) + 1); sum += r[i]; h += die(r[i], cfg.s, true); }
+    $("#dice").innerHTML = h; $("#wSum").textContent = sum;
+    $("#wSumL").textContent = cfg.n > 1 ? "Summe aus " + cfg.n + "W" + cfg.s : "Ergebnis W" + cfg.s;
+    hist.unshift(cfg.n + "W" + cfg.s + ": " + r.join(" + ") + (cfg.n > 1 ? " = " + sum : "")); hist = hist.slice(0, 30);
+    store.set("dice.hist", hist); drawHist();
+  }
+  function drawHist() { $("#wHist").innerHTML = hist.length ? esc(hist.join("\n")).replace(/\n/g, "<br>") : '<span class="muted">Noch nicht gewürfelt.</span>'; }
+  function idle() { var h = "", i; for (i = 0; i < cfg.n; i++) { h += die(cfg.s === 6 ? 6 : cfg.s, cfg.s, false); } $("#dice").innerHTML = h; $("#wSum").textContent = "–"; }
+
+  $("#wN").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.n = +b.getAttribute("data-v"); save(); chips(); idle(); } };
+  $("#wS").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.s = +b.getAttribute("data-v"); save(); chips(); idle(); } };
+  onPress($("#wRoll"), roll);
+  $("#dice").onclick = roll;
+  $("#wClr").onclick = function () { hist = []; store.set("dice.hist", hist); drawHist(); };
+
+  function coinDraw() { $("#cK").textContent = cfg.k; $("#cZ").textContent = cfg.z; }
+  function flip() {
+    var c = $("#coin"), k = rnd(2) === 0;
+    c.className = ""; c.textContent = "…";
+    setTimeout(function () { c.className = "roll"; c.textContent = k ? "Kopf" : "Zahl"; if (k) { cfg.k++; } else { cfg.z++; } save(); coinDraw(); }, 120);
+  }
+  onPress($("#cFlip"), flip); $("#coin").onclick = flip;
+  $("#cClr").onclick = function () { cfg.k = cfg.z = 0; save(); coinDraw(); $("#coin").textContent = "?"; };
+
+  var uniq = false;
+  $("#rUniq").onclick = function () { uniq = !uniq; this.setAttribute("aria-pressed", uniq ? "true" : "false"); };
+  $("#rGo").onclick = function () {
+    var a = Math.round(parseNum($("#rMin").value)), b = Math.round(parseNum($("#rMax").value)), n = Math.round(parseNum($("#rCnt").value)), out = [], pool, i;
+    if (isNaN(a) || isNaN(b)) { toast("Bereich eingeben"); return; }
+    if (a > b) { i = a; a = b; b = i; }
+    if (!(n >= 1 && n <= 100)) { n = 1; }
+    if (b - a + 1 > 4294967296) { toast("Bereich zu groß"); return; }
+    if (uniq) {
+      if (n > b - a + 1) { toast("Nicht genug Zahlen im Bereich"); return; }
+      pool = {};
+      while (out.length < n) { var v = a + rnd(b - a + 1); if (!pool[v]) { pool[v] = 1; out.push(v); } }
+    } else { for (i = 0; i < n; i++) { out.push(a + rnd(b - a + 1)); } }
+    $("#rOut").style.fontSize = n > 1 ? "24px" : ""; $("#rOut").textContent = out.join(", ");
+  };
+  $("#rCopy").onclick = function () { var t = $("#rOut").textContent; if (t !== "–") { copy(t); } };
+
+  function setMode(m) {
+    cfg.mode = m; save();
+    $("#pDice").hidden = m !== "dice"; $("#pCoin").hidden = m !== "coin"; $("#pNum").hidden = m !== "num";
+    var bs = $$("#wMode button"); for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-m") === m ? "true" : "false"); }
+  }
+  $("#wMode").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setMode(b.getAttribute("data-m")); } };
+  if (SIDES.indexOf(cfg.s) < 0) { cfg.s = 6; }
+  chips(); idle(); drawHist(); coinDraw(); setMode(cfg.mode);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Zähler · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.cnt { border-radius: 16px; margin-bottom: 12px; overflow: hidden; }
+.cnt .hit { display: block; width: 100%; border: 0; padding: 14px 16px 10px; cursor: pointer; text-align: center; -ms-touch-action: manipulation; touch-action: manipulation; }
+.cnt .hit .v { font-size: 52px; font-weight: 700; line-height: 1.1; font-family: Consolas, "Courier New", monospace; }
+.cnt .bar { display: -ms-flexbox; display: flex; padding: 6px 8px; }
+.cnt .bar .grow { -ms-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; font-weight: 600; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Zähler</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div id="cList"></div>
+<div class="flex"><input type="text" id="cName" class="grow" placeholder="Name des neuen Zählers" maxlength="40"><button class="btn" id="cAdd">Hinzufügen</button></div>
+<p class="muted" style="font-size:14px">Tippe auf die große Zahl zum Hochzählen. Halte − gedrückt zum schnellen Herunterzählen.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var list = store.get("counters", null);
+  if (!list) { list = [{ n: "Zähler", v: 0 }]; }
+  themeCss(function (t) { return ".cnt{background:" + t.sf + ";border:1px solid " + t.bd + "}.cnt .hit{background:" + t.acs + ";color:" + t.tx + "}.cnt .hit:active{background:" + t.ac + ";color:" + t.onac + "}"; });
+  function save() { store.set("counters", list); }
+  function draw() {
+    var h = "", i;
+    for (i = 0; i < list.length; i++) {
+      h += '<div class="cnt"><button class="hit" data-a="inc" data-i="' + i + '"><div class="v">' + list[i].v + '</div><div class="muted" style="font-size:13px">antippen für +1</div></button>' +
+        '<div class="bar"><span class="grow">' + esc(list[i].n) + '</span><button class="btn tonal" data-a="dec" data-i="' + i + '" aria-label="Minus">−</button>' +
+        '<button class="btn text" data-a="ren" data-i="' + i + '">Name</button><button class="btn text" data-a="rst" data-i="' + i + '">0</button><button class="btn text" data-a="del" data-i="' + i + '" aria-label="Löschen">✕</button></div></div>';
+    }
+    $("#cList").innerHTML = h || '<div class="card muted">Kein Zähler vorhanden.</div>';
+    var ds = $$("#cList [data-a=dec]");
+    for (i = 0; i < ds.length; i++) { (function (b) { onPress(b, function () { var c = list[+b.getAttribute("data-i")]; c.v--; save(); b.parentNode.parentNode.querySelector(".v").textContent = c.v; }, 120); })(ds[i]); }
+  }
+  $("#cList").onclick = function (e) {
+    var b = closest(e.target, "[data-a]"); if (!b) { return; }
+    var i = +b.getAttribute("data-i"), a = b.getAttribute("data-a"), c = list[i];
+    if (a === "inc") { c.v++; save(); b.querySelector(".v").textContent = c.v; return; }
+    if (a === "dec") { return; }
+    if (a === "rst") { if (c.v && confirm("„" + c.n + "“ auf 0 setzen?")) { c.v = 0; } }
+    else if (a === "ren") { var n = prompt("Neuer Name", c.n); if (n != null && n.replace(/\s+/g, "")) { c.n = n.slice(0, 40); } }
+    else if (a === "del") { if (confirm("„" + c.n + "“ löschen?")) { list.splice(i, 1); } }
+    save(); draw();
+  };
+  function add() { var n = $("#cName").value.replace(/^\s+|\s+$/g, "") || "Zähler " + (list.length + 1); list.push({ n: n, v: 0 }); $("#cName").value = ""; save(); draw(); }
+  $("#cAdd").onclick = add;
+  $("#cName").onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); add(); } };
+  draw();
+})();
+</script>
+</body>
+</html>

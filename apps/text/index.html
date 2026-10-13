@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Textwerkzeuge · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#xIn, #xOut { min-height: 140px; font-family: Consolas, "Courier New", monospace; font-size: 14px; }
+.tb button { margin: 0 6px 6px 0; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Textwerkzeuge</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+<textarea id="xIn" placeholder="Text hier eingeben oder einfügen …"></textarea>
+<div class="stats mt" id="xStats"></div>
+</div>
+<div class="card tb">
+<h3>Umwandeln</h3>
+<div class="chips"><button data-f="upper">GROSS</button><button data-f="lower">klein</button><button data-f="title">Wörter Groß</button><button data-f="trim">Leerzeichen bereinigen</button><button data-f="sort">Zeilen sortieren</button><button data-f="uniq">Doppelte Zeilen entfernen</button><button data-f="rev">Umkehren</button></div>
+<h3 class="mt">Kodieren</h3>
+<div class="chips"><button data-f="b64e">Base64 kodieren</button><button data-f="b64d">Base64 dekodieren</button><button data-f="urle">URL kodieren</button><button data-f="urld">URL dekodieren</button><button data-f="html">HTML maskieren</button><button data-f="sha">SHA-256</button></div>
+</div>
+<div class="card">
+<h3 id="xOutL">Ergebnis</h3>
+<textarea id="xOut" readonly></textarea>
+<div class="row mt"><button class="btn" id="xCopy">Kopieren</button><button class="btn tonal" id="xUse">Als Eingabe übernehmen</button></div>
+</div>
+<p class="muted" style="font-size:13px">Alles wird lokal auf dem Gerät berechnet. Der SHA-256-Wert bezieht sich auf den Text in UTF-8.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  function utf8(s) { return unescape(encodeURIComponent(s)); }
+  function deutf8(s) { return decodeURIComponent(escape(s)); }
+  /* SHA-256 (FIPS 180-4) über einen Byte-String */
+  function sha256(str) {
+    var K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+      0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+      0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+      0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    var l = str.length, words = [], i, j, W = [], a, b, c, d, e, f, g, h, t1, t2;
+    for (i = 0; i < l; i++) { words[i >> 2] |= (str.charCodeAt(i) & 255) << (24 - (i % 4) * 8); }
+    words[l >> 2] |= 0x80 << (24 - (l % 4) * 8);
+    var nw = (((l + 8) >> 6) + 1) * 16;
+    for (i = 0; i < nw; i++) { words[i] = words[i] | 0; }
+    words[nw - 1] = (l * 8) >>> 0; words[nw - 2] = Math.floor(l / 536870912);
+    function rr(x, n) { return (x >>> n) | (x << (32 - n)); }
+    for (i = 0; i < nw; i += 16) {
+      a = H[0]; b = H[1]; c = H[2]; d = H[3]; e = H[4]; f = H[5]; g = H[6]; h = H[7];
+      for (j = 0; j < 64; j++) {
+        if (j < 16) { W[j] = words[i + j]; }
+        else { W[j] = (W[j - 16] + (rr(W[j - 15], 7) ^ rr(W[j - 15], 18) ^ (W[j - 15] >>> 3)) + W[j - 7] + (rr(W[j - 2], 17) ^ rr(W[j - 2], 19) ^ (W[j - 2] >>> 10))) | 0; }
+        t1 = (h + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & f) ^ (~e & g)) + K[j] + W[j]) | 0;
+        t2 = ((rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    var out = "";
+    for (i = 0; i < 8; i++) { out += ("0000000" + (H[i] >>> 0).toString(16)).slice(-8); }
+    return out;
+  }
+  var F = {
+    upper: function (s) { return s.toUpperCase(); },
+    lower: function (s) { return s.toLowerCase(); },
+    title: function (s) { return s.toLowerCase().replace(/(^|[\s\-("„])([a-zäöüß])/g, function (m, p, c) { return p + c.toUpperCase(); }); },
+    trim: function (s) { return s.replace(/[ \t]+/g, " ").replace(/^ +| +$/gm, "").replace(/\n{3,}/g, "\n\n").replace(/^\s+|\s+$/g, ""); },
+    sort: function (s) { return s.split(/\r?\n/).sort(function (a, b) { return a.localeCompare ? a.localeCompare(b, "de") : a < b ? -1 : a > b ? 1 : 0; }).join("\n"); },
+    uniq: function (s) { var seen = {}, o = []; s.split(/\r?\n/).forEach(function (l) { if (!seen.hasOwnProperty("k" + l)) { seen["k" + l] = 1; o.push(l); } }); return o.join("\n"); },
+    rev: function (s) { return s.split("").reverse().join(""); },
+    b64e: function (s) { return btoa(utf8(s)); },
+    b64d: function (s) { return deutf8(atob(s.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/"))); },
+    urle: function (s) { return encodeURIComponent(s); },
+    urld: function (s) { return decodeURIComponent(s.replace(/\+/g, " ")); },
+    html: function (s) { return esc(s); },
+    sha: function (s) { return sha256(utf8(s)); }
+  };
+  var NAMES = { upper: "GROSS", lower: "klein", title: "Wörter groß", trim: "Bereinigt", sort: "Sortiert", uniq: "Ohne Duplikate", rev: "Umgekehrt", b64e: "Base64", b64d: "Base64 dekodiert", urle: "URL-kodiert", urld: "URL-dekodiert", html: "HTML-maskiert", sha: "SHA-256" };
+  function stats() {
+    var s = $("#xIn").value, t = s.replace(/^\s+|\s+$/g, "");
+    store.set("text.in", s.length < 20000 ? s : "");
+    $("#xStats").innerHTML = "<div><b>" + s.length + "</b><span>Zeichen</span></div><div><b>" + s.replace(/\s/g, "").length + "</b><span>ohne Leerz.</span></div>" +
+      "<div><b>" + (t ? t.split(/\s+/).length : 0) + "</b><span>Wörter</span></div><div><b>" + (s ? s.split(/\n/).length : 0) + "</b><span>Zeilen</span></div><div><b>" + utf8(s).length + "</b><span>Bytes</span></div>";
+  }
+  $("#xIn").value = store.get("text.in", "");
+  $("#xIn").oninput = stats; $("#xIn").onkeyup = stats;
+  document.body.onclick = function (e) {
+    var b = closest(e.target, "[data-f]"); if (!b) { return; }
+    var f = b.getAttribute("data-f");
+    try { $("#xOut").value = F[f]($("#xIn").value); $("#xOutL").textContent = "Ergebnis: " + NAMES[f]; }
+    catch (err) { $("#xOut").value = ""; $("#xOutL").textContent = "Ergebnis"; toast(f === "b64d" ? "Kein gültiges Base64" : "Kein gültiger Text für diese Umwandlung"); }
+  };
+  $("#xCopy").onclick = function () { if ($("#xOut").value) { copy($("#xOut").value); } };
+  $("#xUse").onclick = function () { if ($("#xOut").value) { $("#xIn").value = $("#xOut").value; stats(); } };
+  stats();
+})();
+</script>
+</body>
+</html>

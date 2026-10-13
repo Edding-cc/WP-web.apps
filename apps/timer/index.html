@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Timer & Pomodoro · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.adj button { font-size: 16px; }
+#pmPhase { font-weight: 700; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Timer & Pomodoro</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="tmMode" style="margin-bottom:12px"><button data-m="timer">Timer</button><button data-m="pomo">Pomodoro</button></div>
+<div id="paneTimer">
+<div class="card"><div class="timebig" id="tmT">05:00</div><div class="center muted" id="tmEnd">&nbsp;</div></div>
+<div class="ctl c4 adj" id="tmAdj"><button data-d="-60">−1 min</button><button data-d="60">+1 min</button><button data-d="-10">−10 s</button><button data-d="10">+10 s</button></div>
+<div class="chips" id="tmPre"></div>
+<div class="ctl c2 mt"><button id="tmReset" class="tonal">Zurücksetzen</button><button id="tmGo" class="ac">Start</button></div>
+</div>
+<div id="paneP" hidden>
+<div class="card"><div class="center" id="pmPhase">Fokus</div><div class="timebig" id="pmT">25:00</div><div class="center muted" id="pmInfo">&nbsp;</div></div>
+<div class="ctl"><button id="pmReset" class="tonal">Neu</button><button id="pmGo" class="ac">Start</button><button id="pmSkip" class="tonal">Nächste</button></div>
+<div class="card">
+<h3>Einstellungen</h3>
+<div class="g2"><div><label class="fld" for="pmW">Fokus (Minuten)</label><input type="number" id="pmW" min="1" max="180"></div><div><label class="fld" for="pmS">Kurze Pause</label><input type="number" id="pmS" min="1" max="60"></div></div>
+<div class="g2"><div><label class="fld" for="pmL">Lange Pause</label><input type="number" id="pmL" min="1" max="90"></div><div><label class="fld" for="pmN">Lange Pause nach … Einheiten</label><input type="number" id="pmN" min="1" max="12"></div></div>
+<div class="switch mt"><span>Nächste Phase automatisch starten</span><button class="tg" id="pmAuto" aria-pressed="false" aria-label="Automatisch"></button></div>
+</div>
+</div>
+<p class="hint">Die Zeit läuft über die Uhrzeit weiter, auch wenn du die Seite verlässt. Ton und Vibration gibt es nur, wenn der Browser es unterstützt – sonst blinkt der Bildschirm. Bei gesperrtem Bildschirm kann der Browser keinen Alarm auslösen.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var PRE = [1, 3, 5, 10, 15, 20, 30, 45, 60];
+  var T = assign({ dur: 300, end: 0, left: 300, run: false }, store.get("timer", {}));
+  var P = assign({ w: 25, s: 5, l: 15, n: 4, auto: false, phase: "w", done: 0, end: 0, left: 1500, run: false }, store.get("pomo", {}));
+  var mode = store.get("timer.mode", "timer");
+  var NAMES = { w: "Fokus", s: "Kurze Pause", l: "Lange Pause" };
+
+  function tLeft() { return T.run ? Math.max(0, T.end - Date.now()) : T.left * 1000; }
+  function pLeft() { return P.run ? Math.max(0, P.end - Date.now()) : P.left * 1000; }
+  function fmt(ms) { return fmtDur(Math.ceil(ms / 1000) * 1000); }
+  function clock(ts) { var d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function saveT() { store.set("timer", T); }
+  function saveP() { store.set("pomo", P); }
+
+  /* ---- Timer ---- */
+  var ph = "";
+  for (var i = 0; i < PRE.length; i++) { ph += '<button data-m="' + PRE[i] + '">' + (PRE[i] < 60 ? PRE[i] + " min" : PRE[i] / 60 + " h") + "</button>"; }
+  $("#tmPre").innerHTML = ph;
+  function drawT() {
+    var l = tLeft();
+    $("#tmT").textContent = fmt(l);
+    $("#tmGo").textContent = T.run ? "Pause" : T.left !== T.dur ? "Weiter" : "Start";
+    $("#tmEnd").textContent = T.run ? "Ende um " + clock(T.end) : " ";
+  }
+  function setDur(sec) { sec = Math.max(1, Math.min(sec, 24 * 3600 - 1)); T.dur = T.left = sec; T.run = false; saveT(); drawT(); }
+  $("#tmPre").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setDur(+b.getAttribute("data-m") * 60); } };
+  var adj = $$("#tmAdj button");
+  for (i = 0; i < adj.length; i++) {
+    (function (b) {
+      onPress(b, function () {
+        var d = +b.getAttribute("data-d");
+        if (T.run) { T.end = Math.max(Date.now() + 1000, T.end + d * 1000); saveT(); drawT(); }
+        else { setDur((T.left || T.dur) + d); }
+      }, 160);
+    })(adj[i]);
+  }
+  onPress($("#tmGo"), function () {
+    if (T.run) { T.left = Math.ceil(tLeft() / 1000); T.run = false; }
+    else { if (T.left <= 0) { T.left = T.dur; } T.end = Date.now() + T.left * 1000; T.run = true; }
+    saveT(); drawT();
+  });
+  $("#tmReset").onclick = function () { T.run = false; T.left = T.dur; saveT(); drawT(); };
+
+  /* ---- Pomodoro ---- */
+  function phaseLen(p) { return (p === "w" ? P.w : p === "s" ? P.s : P.l) * 60; }
+  function drawP() {
+    $("#pmPhase").textContent = NAMES[P.phase];
+    $("#pmT").textContent = fmt(pLeft());
+    $("#pmGo").textContent = P.run ? "Pause" : P.left !== phaseLen(P.phase) ? "Weiter" : "Start";
+    $("#pmInfo").textContent = "Abgeschlossene Fokus-Einheiten heute: " + P.done + (P.run ? " · Ende um " + clock(P.end) : "");
+    $("#pmAuto").setAttribute("aria-pressed", P.auto ? "true" : "false");
+  }
+  function nextPhase(auto) {
+    if (P.phase === "w") { P.done++; P.phase = P.done % P.n === 0 ? "l" : "s"; } else { P.phase = "w"; }
+    P.left = phaseLen(P.phase); P.run = false;
+    if (auto) { P.end = Date.now() + P.left * 1000; P.run = true; }
+    saveP(); drawP();
+  }
+  onPress($("#pmGo"), function () {
+    if (P.run) { P.left = Math.ceil(pLeft() / 1000); P.run = false; }
+    else { P.end = Date.now() + P.left * 1000; P.run = true; }
+    saveP(); drawP();
+  });
+  $("#pmSkip").onclick = function () { nextPhase(false); };
+  $("#pmReset").onclick = function () { if (confirm("Pomodoro zurücksetzen (inkl. Zähler)?")) { P.phase = "w"; P.done = 0; P.run = false; P.left = phaseLen("w"); saveP(); drawP(); } };
+  $("#pmAuto").onclick = function () { P.auto = !P.auto; saveP(); drawP(); };
+  function bindNum(id, key, mx) {
+    $(id).value = P[key];
+    $(id).onchange = function () {
+      var v = Math.round(parseNum(this.value));
+      if (!(v >= 1 && v <= mx)) { this.value = P[key]; toast("Bitte 1 bis " + mx); return; }
+      P[key] = v; if (!P.run) { P.left = phaseLen(P.phase); } saveP(); drawP();
+    };
+  }
+  bindNum("#pmW", "w", 180); bindNum("#pmS", "s", 60); bindNum("#pmL", "l", 90); bindNum("#pmN", "n", 12);
+  (function () { var d = new Date().toDateString(); if (store.get("pomo.day", d) !== d) { P.done = 0; saveP(); } store.set("pomo.day", d); })();
+
+  /* ---- Takt ---- */
+  setInterval(function () {
+    if (T.run && tLeft() <= 0) { T.run = false; T.left = T.dur; saveT(); beep(4); toast("Timer abgelaufen"); }
+    if (P.run && pLeft() <= 0) { var was = P.phase; nextPhase(P.auto); beep(3); toast(NAMES[was] + " beendet – jetzt " + NAMES[P.phase]); }
+    drawT(); drawP();
+    var tl = T.run ? fmt(tLeft()) : P.run ? fmt(pLeft()) : "";
+    document.title = (tl ? tl + " · " : "") + "Timer & Pomodoro";
+  }, 250);
+
+  function setMode(m) {
+    mode = m; store.set("timer.mode", m);
+    $("#paneTimer").hidden = m !== "timer"; $("#paneP").hidden = m !== "pomo";
+    var bs = $$("#tmMode button");
+    for (var j = 0; j < bs.length; j++) { bs[j].setAttribute("aria-pressed", bs[j].getAttribute("data-m") === m ? "true" : "false"); }
+  }
+  $("#tmMode").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setMode(b.getAttribute("data-m")); } };
+  setMode(mode === "pomo" ? "pomo" : "timer"); drawT(); drawP();
+})();
+</script>
+</body>
+</html>

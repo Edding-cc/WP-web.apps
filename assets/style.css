@@ -6,6 +6,7 @@
 html, body { margin: 0; padding: 0; }
 body { font: 16px/1.5 "Segoe WP", "Segoe UI", Roboto, Arial, sans-serif; background: #111316; color: #e6e8eb; -ms-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
 button, input, select, textarea { font: inherit; color: inherit; }
+button, a, .tool { -ms-touch-action: manipulation; touch-action: manipulation; }
 .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 32px; }
 
 header.top .wrap { display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; min-height: 60px; padding-bottom: 0; }
@@ -40,7 +41,7 @@ a.btn { display: inline-block; text-decoration: none; line-height: 24px; }
 .seg { display: inline-block; white-space: nowrap; border-radius: 999px; overflow: hidden; }
 .seg button { border: 0; background: none; padding: 8px 16px; cursor: pointer; min-height: 40px; }
 
-input[type=text], input[type=url], input[type=search], select, textarea { border-radius: 12px; padding: 10px 12px; outline: none; width: 100%; }
+input[type=text], input[type=url], input[type=search], input[type=number], input[type=tel], input[type=password], select, textarea { border-radius: 12px; padding: 10px 12px; outline: none; width: 100%; }
 .search { border-radius: 999px; padding: 12px 16px; }
 label.fld { display: block; font-size: 13px; margin: 10px 0 4px; }
 input[type=range] { width: 100%; padding: 0; }
@@ -94,3 +95,34 @@ dl.kv { margin: 0; overflow: hidden; font-size: 14px; }
 canvas.chart { width: 100%; height: 120px; display: block; border-radius: 12px; }
 .pos-grid { font-size: 0; max-width: 220px; }
 .pos-grid button { display: inline-block; width: 32%; margin: 0 .66% 6px; min-height: 40px; border-radius: 10px; cursor: pointer; font-size: 14px; padding: 0; }
+
+/* ---------- Apps (gemeinsam) ---------- */
+.home-group h2 { margin-top: 24px; }
+.stats { display: -ms-flexbox; display: flex; margin: 0 -4px 12px; }
+.stats > div { -ms-flex: 1 1 0%; flex: 1 1 0%; margin: 0 4px; border-radius: 12px; padding: 6px 4px; text-align: center; min-width: 0; }
+.stats b { display: block; font-size: 20px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats span { display: block; font-size: 12px; }
+.ctl { font-size: 0; margin: 0 -1%; -ms-user-select: none; user-select: none; -webkit-user-select: none; }
+.ctl button { display: inline-block; vertical-align: top; width: 31.33%; margin: 0 1% 8px; height: 56px; border: 0; border-radius: 14px; font-size: 18px; font-weight: 600; cursor: pointer; padding: 0; -ms-touch-action: none; touch-action: none; }
+.ctl.c4 button { width: 23%; }
+.ctl.c2 button { width: 48%; }
+.ctl.c5 button { width: 18%; }
+.ctl button svg { width: 26px; height: 26px; vertical-align: middle; }
+.ctl button.wide { width: 64.66%; }
+.chips { font-size: 0; }
+.chips button { display: inline-block; vertical-align: top; border-radius: 999px; padding: 6px 14px; margin: 0 6px 6px 0; min-height: 36px; font-size: 14px; cursor: pointer; }
+.cb { width: 28px; height: 28px; border-radius: 8px; padding: 0; cursor: pointer; -ms-flex: 0 0 28px; flex: 0 0 28px; font-size: 16px; line-height: 24px; text-align: center; font-weight: 700; margin-right: 12px; }
+.result { border-radius: 12px; padding: 12px 14px; margin-top: 12px; word-wrap: break-word; }
+.result .big { font-size: 34px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th { text-align: left; font-weight: 600; font-size: 12px; padding: 6px 8px 6px 0; }
+.tbl td { padding: 6px 8px 6px 0; vertical-align: top; word-wrap: break-word; }
+.tbl tr:first-child td, .tbl tr:first-child th { border-top: 0; }
+.board { margin: 0 auto 12px; -ms-touch-action: none; touch-action: none; -ms-user-select: none; user-select: none; -webkit-user-select: none; position: relative; }
+.center { text-align: center; }
+.mt { margin-top: 12px; }
+.nowrap { white-space: nowrap; }
+.flex { display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; }
+.flex > .grow { -ms-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.flex > * + * { margin-left: 8px; }
+.timebig { font-size: 56px; font-weight: 700; line-height: 1.1; font-family: Consolas, "Courier New", monospace; text-align: center; margin: 8px 0; }

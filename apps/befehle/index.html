@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Befehle · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.cmd { font-family: Consolas, "Courier New", monospace; font-size: 14px; font-weight: 700; word-break: break-all; }
+.cmdh { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; margin: 16px 0 4px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Befehle</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="bOs" style="margin-bottom:12px"><button data-o="win">Windows</button><button data-o="lin">Linux</button></div>
+<input class="search" id="bq" type="search" placeholder="Befehl oder Aufgabe suchen …">
+<div id="bList"></div>
+<p class="muted" style="font-size:13px">Antippen kopiert den Befehl. Platzhalter in &lt;spitzen Klammern&gt; ersetzen. Manche Befehle brauchen Administrator- bzw. root-Rechte. Scans und Tests nur in eigenen oder freigegebenen Netzen.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var C = {
+    win: [
+      ["Netzwerk", [
+        ["ipconfig /all", "IP-Konfiguration aller Adapter inkl. MAC, DNS, DHCP"], ["ipconfig /release && ipconfig /renew", "DHCP-Adresse neu anfordern"],
+        ["ipconfig /flushdns", "DNS-Cache leeren"], ["ipconfig /displaydns", "DNS-Cache anzeigen"], ["ping -n 4 <host>", "Erreichbarkeit prüfen"],
+        ["tracert <host>", "Route zum Ziel verfolgen"], ["pathping <host>", "Route mit Paketverlust je Hop"], ["nslookup <name> <dns-server>", "DNS-Abfrage"],
+        ["netstat -ano", "Verbindungen und lauschende Ports mit Prozess-ID"], ["arp -a", "ARP-Tabelle anzeigen"], ["route print", "Routingtabelle anzeigen"],
+        ["getmac /v", "MAC-Adressen der Adapter"], ["netsh wlan show profiles", "Gespeicherte WLAN-Profile"], ["netsh wlan show interfaces", "Aktuelle WLAN-Verbindung, Signal, Kanal"],
+        ["netsh advfirewall show allprofiles", "Status der Windows-Firewall"]
+      ]],
+      ["PowerShell Netzwerk", [
+        ["Test-NetConnection <host> -Port 443", "Port erreichbar? (TCP-Test)"], ["Get-NetIPConfiguration", "IP-Konfiguration kompakt"],
+        ["Get-NetTCPConnection -State Listen", "Lauschende TCP-Ports"], ["Resolve-DnsName <name> -Type MX", "DNS-Abfrage mit Eintragstyp"],
+        ["Get-NetAdapter", "Netzwerkadapter und Status"]
+      ]],
+      ["System", [
+        ["systeminfo", "Betriebssystem, Updates, Hardware-Übersicht"], ["winver", "Windows-Version anzeigen"], ["hostname", "Rechnername"],
+        ["whoami /all", "Aktueller Benutzer mit Gruppen und Rechten"], ["tasklist", "Laufende Prozesse"], ["taskkill /PID <pid> /F", "Prozess beenden"],
+        ["sfc /scannow", "Systemdateien prüfen und reparieren"], ["DISM /Online /Cleanup-Image /RestoreHealth", "Windows-Abbild reparieren"],
+        ["chkdsk C: /f", "Dateisystem prüfen (beim Neustart)"], ["shutdown /r /t 0", "Sofort neu starten"], ["msinfo32", "Systeminformationen (GUI)"],
+        ["Get-ComputerInfo", "Systemdaten in PowerShell"], ["winget upgrade --all", "Installierte Programme über winget aktualisieren"]
+      ]],
+      ["Benutzer & Richtlinien", [
+        ["net user", "Lokale Benutzer auflisten"], ["net user <name>", "Details zu einem Benutzer"], ["net localgroup administrators", "Mitglieder der lokalen Administratoren"],
+        ["gpupdate /force", "Gruppenrichtlinien neu anwenden"], ["gpresult /r", "Angewendete Gruppenrichtlinien"], ["net accounts", "Kennwort- und Sperrrichtlinie lokal"]
+      ]],
+      ["Sicherheit & Prüfsummen", [
+        ["certutil -hashfile <datei> SHA256", "SHA-256-Prüfsumme einer Datei"], ["Get-FileHash <datei> -Algorithm SHA256", "Prüfsumme in PowerShell"],
+        ["manage-bde -status", "BitLocker-Status der Laufwerke"], ["Get-MpComputerStatus", "Status von Microsoft Defender"],
+        ["Get-WinEvent -LogName Security -MaxEvents 20", "Letzte Ereignisse im Sicherheitsprotokoll"], ["cipher /w:C:\\", "Freien Speicher überschreiben"]
+      ]]
+    ],
+    lin: [
+      ["Netzwerk", [
+        ["ip a", "IP-Adressen der Schnittstellen"], ["ip r", "Routingtabelle"], ["ip link", "Schnittstellen und Status"], ["ip neigh", "ARP-/Nachbartabelle"],
+        ["ss -tulpn", "Lauschende TCP/UDP-Ports mit Prozess"], ["ping -c 4 <host>", "Erreichbarkeit prüfen"], ["traceroute <host>", "Route verfolgen"],
+        ["dig <name> MX +short", "DNS-Abfrage mit Eintragstyp"], ["nslookup <name>", "DNS-Abfrage"], ["curl -I https://<host>", "Nur HTTP-Header abrufen"],
+        ["openssl s_client -connect <host>:443", "TLS-Verbindung und Zertifikat prüfen"], ["nmap -sV <host>", "Dienste und Versionen erkennen (nur autorisiert)"],
+        ["resolvectl status", "DNS-Konfiguration (systemd-resolved)"]
+      ]],
+      ["Dateien", [
+        ["ls -la", "Alle Dateien mit Rechten anzeigen"], ["cd -", "Zum vorherigen Verzeichnis"], ["find / -name '<muster>' 2>/dev/null", "Dateien suchen"],
+        ["grep -rn '<text>' <pfad>", "Text rekursiv mit Zeilennummer suchen"], ["tail -f /var/log/syslog", "Log live mitlesen"], ["less <datei>", "Datei seitenweise lesen"],
+        ["chmod 640 <datei>", "Rechte setzen (rw-r-----)"], ["chown <user>:<gruppe> <datei>", "Besitzer ändern"], ["tar -czf archiv.tar.gz <ordner>", "Ordner packen"],
+        ["tar -xzf archiv.tar.gz", "Archiv entpacken"], ["rsync -avz <quelle> <user>@<host>:<ziel>", "Dateien synchronisieren"], ["scp <datei> <user>@<host>:<ziel>", "Datei per SSH kopieren"],
+        ["sha256sum <datei>", "SHA-256-Prüfsumme"]
+      ]],
+      ["System", [
+        ["uname -a", "Kernel und System"], ["cat /etc/os-release", "Distribution und Version"], ["uptime", "Laufzeit und Last"], ["df -h", "Belegung der Dateisysteme"],
+        ["du -sh *", "Größe der Einträge im Ordner"], ["free -h", "Arbeitsspeicher"], ["lsblk", "Laufwerke und Partitionen"], ["top", "Prozesse live (htop, falls installiert)"],
+        ["ps aux | grep <name>", "Prozess suchen"], ["kill <pid>", "Prozess beenden (kill -9 erzwingt)"], ["systemctl status <dienst>", "Status eines Dienstes"],
+        ["sudo systemctl restart <dienst>", "Dienst neu starten"], ["sudo systemctl enable --now <dienst>", "Dienst aktivieren und starten"],
+        ["journalctl -u <dienst> -f", "Log eines Dienstes live"], ["journalctl -p err -b", "Fehler seit dem letzten Start"],
+        ["sudo apt update && sudo apt upgrade", "Pakete aktualisieren (Debian/Ubuntu)"], ["sudo dnf upgrade", "Pakete aktualisieren (Fedora/RHEL)"], ["crontab -e", "Zeitgesteuerte Aufgaben bearbeiten"]
+      ]],
+      ["Benutzer & Sicherheit", [
+        ["whoami && id", "Aktueller Benutzer und Gruppen"], ["sudo -l", "Erlaubte sudo-Befehle"], ["passwd", "Eigenes Passwort ändern"],
+        ["sudo useradd -m <name>", "Benutzer mit Home-Verzeichnis anlegen"], ["last -n 20", "Letzte Anmeldungen"], ["sudo ufw status verbose", "Firewall-Status (ufw)"],
+        ["sudo iptables -L -n -v", "Firewall-Regeln (iptables)"], ["sudo nft list ruleset", "Firewall-Regeln (nftables)"], ["ssh-keygen -t ed25519", "SSH-Schlüsselpaar erzeugen"],
+        ["ssh-copy-id <user>@<host>", "Öffentlichen Schlüssel auf Server kopieren"]
+      ]]
+    ]
+  };
+  var os = store.get("cmd.os", "win");
+  function draw() {
+    var q = $("#bq").value.replace(/^\s+|\s+$/g, "").toLowerCase(), h = "", i, j, g, part, n = 0;
+    for (i = 0; i < C[os].length; i++) {
+      g = C[os][i]; part = "";
+      for (j = 0; j < g[1].length; j++) {
+        if (q && (g[1][j][0] + " " + g[1][j][1] + " " + g[0]).toLowerCase().indexOf(q) < 0) { continue; }
+        n++;
+        part += '<div class="list-item" data-c="' + esc(g[1][j][0]) + '" style="cursor:pointer;display:block"><div class="cmd">' + esc(g[1][j][0]) + '</div><small>' + esc(g[1][j][1]) + "</small></div>";
+      }
+      if (part) { h += '<div class="cmdh muted">' + esc(g[0]) + '</div><div class="card" style="padding:4px 16px">' + part + "</div>"; }
+    }
+    $("#bList").innerHTML = n ? h : '<div class="card muted">Nichts gefunden.</div>';
+    var bs = $$("#bOs button"); for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-o") === os ? "true" : "false"); }
+  }
+  $("#bOs").onclick = function (e) { var b = closest(e.target, "button"); if (b) { os = b.getAttribute("data-o"); store.set("cmd.os", os); draw(); } };
+  $("#bq").oninput = draw; $("#bq").onkeyup = draw;
+  $("#bList").onclick = function (e) { var it = closest(e.target, "[data-c]"); if (it) { copy(it.getAttribute("data-c")); } };
+  if (!C[os]) { os = "win"; }
+  draw();
+})();
+</script>
+</body>
+</html>
