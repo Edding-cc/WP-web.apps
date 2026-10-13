@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Notizen · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#nBody { min-height: 260px; resize: vertical; line-height: 1.5; }
+.nprev { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Notizen</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div id="vList">
+<div class="flex" style="margin-bottom:12px"><input class="search grow" id="nq" type="search" placeholder="Notizen durchsuchen …" style="margin:0"><button class="btn" id="nAdd">Neu</button></div>
+<div class="card" id="nList"></div>
+<p class="muted" style="font-size:14px">Notizen werden nur lokal in diesem Browser gespeichert.</p>
+</div>
+<div id="vEdit" hidden>
+<div class="card">
+<input type="text" id="nTitle" placeholder="Titel" style="font-weight:600;margin-bottom:8px">
+<textarea id="nBody" placeholder="Notiz …"></textarea>
+<div class="row between mt"><span class="muted" id="nInfo" style="font-size:13px"></span></div>
+<div class="row"><button class="btn" id="nDone">Fertig</button><button class="btn tonal" id="nPin">Anheften</button><button class="btn tonal" id="nCopy">Kopieren</button><button class="btn danger" id="nDel">Löschen</button></div>
+</div>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var notes = store.get("notes", []), cur = null, saveT = 0;
+  function sortNotes() { notes.sort(function (a, b) { return (b.p ? 1 : 0) - (a.p ? 1 : 0) || b.u - a.u; }); }
+  function when(ts) {
+    var d = new Date(ts), now = new Date();
+    if (d.toDateString() === now.toDateString()) { return "heute " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+    return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear();
+  }
+  function list() {
+    sortNotes();
+    var q = $("#nq").value.replace(/^\s+|\s+$/g, "").toLowerCase(), h = "", i, n, c = 0;
+    for (i = 0; i < notes.length; i++) {
+      n = notes[i];
+      if (q && (n.t + " " + n.b).toLowerCase().indexOf(q) < 0) { continue; }
+      c++;
+      h += '<div class="list-item" data-id="' + n.id + '" style="cursor:pointer"><div class="grow"><b>' + (n.p ? '<span class="badge">angeheftet</span> ' : "") + esc(n.t || firstLine(n.b) || "Ohne Titel") + "</b>" +
+        '<span class="nprev muted">' + esc(n.b.replace(/\s+/g, " ").slice(0, 120) || "–") + "</span><small>" + when(n.u) + "</small></div></div>";
+    }
+    $("#nList").innerHTML = c ? h : '<p class="muted" style="margin:0">' + (notes.length ? "Nichts gefunden." : "Noch keine Notizen. Tippe auf „Neu“.") + "</p>";
+  }
+  function firstLine(s) { return (s || "").split("\n")[0].slice(0, 60); }
+  function byId(id) { for (var i = 0; i < notes.length; i++) { if (notes[i].id === id) { return notes[i]; } } return null; }
+  function persist() { store.set("notes", notes); }
+  function open(n) {
+    cur = n; $("#vList").hidden = true; $("#vEdit").hidden = false;
+    $("#nTitle").value = n.t; $("#nBody").value = n.b; info();
+    $("#nPin").textContent = n.p ? "Lösen" : "Anheften";
+    window.scrollTo(0, 0);
+  }
+  function info() {
+    var b = $("#nBody").value, w = b.replace(/^\s+|\s+$/g, "") ? b.replace(/^\s+|\s+$/g, "").split(/\s+/).length : 0;
+    $("#nInfo").textContent = b.length + " Zeichen · " + w + " Wörter · geändert " + when(cur.u);
+  }
+  function edit() {
+    cur.t = $("#nTitle").value; cur.b = $("#nBody").value; cur.u = Date.now();
+    clearTimeout(saveT); saveT = setTimeout(persist, 400); info();
+  }
+  function close() {
+    clearTimeout(saveT);
+    if (cur && !cur.t.replace(/\s+/g, "") && !cur.b.replace(/\s+/g, "")) { notes.splice(notes.indexOf(cur), 1); }
+    persist(); cur = null; $("#vEdit").hidden = true; $("#vList").hidden = false; list();
+  }
+  $("#nAdd").onclick = function () { var n = { id: String(Date.now()) + rnd(1000), t: "", b: "", u: Date.now(), p: false }; notes.unshift(n); open(n); $("#nBody").focus(); };
+  $("#nList").onclick = function (e) { var it = closest(e.target, "[data-id]"); if (it) { open(byId(it.getAttribute("data-id"))); } };
+  $("#nq").oninput = list;
+  $("#nTitle").oninput = edit; $("#nBody").oninput = edit;
+  $("#nDone").onclick = close;
+  $("#nPin").onclick = function () { cur.p = !cur.p; this.textContent = cur.p ? "Lösen" : "Anheften"; persist(); };
+  $("#nCopy").onclick = function () { copy((cur.t ? cur.t + "\n\n" : "") + cur.b); };
+  $("#nDel").onclick = function () {
+    if (!confirm("Diese Notiz löschen?")) { return; }
+    notes.splice(notes.indexOf(cur), 1); cur = null; persist(); $("#vEdit").hidden = true; $("#vList").hidden = false; list();
+  };
+  window.onbeforeunload = function () { if (cur) { persist(); } };
+  list();
+})();
+</script>
+</body>
+</html>

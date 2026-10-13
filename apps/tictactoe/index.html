@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Tic-Tac-Toe · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#tt { font-size: 0; -ms-touch-action: manipulation; touch-action: manipulation; }
+#tt .f { display: inline-block; vertical-align: top; text-align: center; cursor: pointer; border-radius: 12px; font-weight: 700; }
+#tt .f.win { -ms-animation: pop .3s; animation: pop .3s; }
+@-ms-keyframes pop { from { -ms-transform: scale(.7); } to { -ms-transform: scale(1); } }
+@keyframes pop { from { transform: scale(.7); } to { transform: scale(1); } }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Tic-Tac-Toe</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="tMode"><button data-m="easy">Computer leicht</button><button data-m="hard">Computer unschlagbar</button><button data-m="two">2 Spieler</button></div>
+<div class="stats"><div><b id="tX">0</b><span id="tXl">Du (X)</span></div><div><b id="tD">0</b><span>Unentschieden</span></div><div><b id="tO">0</b><span id="tOl">Computer (O)</span></div></div>
+<div class="board" id="tt"></div>
+<p class="center" id="tMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c2"><button id="tNew" class="ac">Neue Runde</button><button id="tReset" class="tonal">Stand löschen</button></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+  var mode = store.get("ttt.mode", "hard"), score = store.get("ttt.score", { X: 0, O: 0, D: 0 }), b, turn, over, starter = "X";
+  themeCss(function (t) { return "#tt .f{background:" + t.sf2 + "}#tt .X{color:" + t.link + "}#tt .O{color:" + t.err + "}#tt .win{background:" + t.acs + "}"; });
+
+  function winner(bd) {
+    for (var i = 0; i < 8; i++) { var l = LINES[i]; if (bd[l[0]] && bd[l[0]] === bd[l[1]] && bd[l[1]] === bd[l[2]]) { return { p: bd[l[0]], l: l }; } }
+    for (i = 0; i < 9; i++) { if (!bd[i]) { return null; } }
+    return { p: "D", l: [] };
+  }
+  /* Minimax mit Tiefe: schnellster Sieg, spätester Verlust */
+  function minimax(bd, p, depth) {
+    var w = winner(bd);
+    if (w) { return { s: w.p === "O" ? 10 - depth : w.p === "X" ? depth - 10 : 0 }; }
+    var best = { s: p === "O" ? -99 : 99, i: -1 }, i, r;
+    for (i = 0; i < 9; i++) {
+      if (bd[i]) { continue; }
+      bd[i] = p; r = minimax(bd, p === "O" ? "X" : "O", depth + 1); bd[i] = "";
+      if ((p === "O" && r.s > best.s) || (p === "X" && r.s < best.s)) { best = { s: r.s, i: i }; }
+    }
+    return best;
+  }
+  function cpuMove() {
+    var free = [], i;
+    for (i = 0; i < 9; i++) { if (!b[i]) { free.push(i); } }
+    if (mode === "easy" && rnd(100) < 60) { return free[rnd(free.length)]; }
+    if (free.length === 9) { return [0, 2, 4, 6, 8][rnd(5)]; }
+    return minimax(b, "O", 0).i;
+  }
+  function newRound() {
+    b = ["", "", "", "", "", "", "", "", ""]; over = false; turn = starter;
+    starter = starter === "X" ? "O" : "X";
+    labels(); render([]);
+    if (mode !== "two" && turn === "O") { setTimeout(function () { play(cpuMove()); }, 350); }
+  }
+  function labels() {
+    $("#tXl").textContent = mode === "two" ? "Spieler X" : "Du (X)";
+    $("#tOl").textContent = mode === "two" ? "Spieler O" : "Computer (O)";
+    $("#tX").textContent = score.X; $("#tO").textContent = score.O; $("#tD").textContent = score.D;
+    var bs = $$("#tMode button");
+    for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-m") === mode ? "true" : "false"); }
+    $("#tMsg").textContent = over ? $("#tMsg").textContent : (mode === "two" ? turn + " ist dran" : turn === "X" ? "Du bist dran" : "Computer denkt …");
+  }
+  function render(win) {
+    var W = Math.min($("#tt").parentNode.clientWidth - 32, 360), gap = 8, s = Math.floor((W - gap * 3) / 3), h = "", i;
+    for (i = 0; i < 9; i++) {
+      h += '<div class="f ' + b[i] + (win.indexOf(i) >= 0 ? " win" : "") + '" data-i="' + i + '" style="width:' + s + "px;height:" + s + "px;line-height:" + s + "px;font-size:" + Math.round(s * 0.6) +
+        "px;margin:0 " + gap / 2 + "px " + gap + 'px">' + (b[i] === "X" ? "✕" : b[i] === "O" ? "○" : "") + "</div>";
+    }
+    $("#tt").style.width = (s + gap) * 3 + "px"; $("#tt").innerHTML = h;
+  }
+  function play(i) {
+    if (over || b[i]) { return; }
+    b[i] = turn;
+    var w = winner(b);
+    if (w) {
+      over = true; score[w.p]++; store.set("ttt.score", score);
+      $("#tMsg").textContent = w.p === "D" ? "Unentschieden" : mode === "two" ? w.p + " gewinnt!" : w.p === "X" ? "Du gewinnst!" : "Der Computer gewinnt.";
+      labels(); render(w.l); return;
+    }
+    turn = turn === "X" ? "O" : "X"; labels(); render([]);
+    if (mode !== "two" && turn === "O") { setTimeout(function () { play(cpuMove()); }, 350); }
+  }
+  $("#tt").onclick = function (e) {
+    var f = closest(e.target, ".f"); if (!f) { return; }
+    if (mode !== "two" && turn === "O") { return; }
+    play(parseInt(f.getAttribute("data-i"), 10));
+  };
+  $("#tNew").onclick = newRound;
+  $("#tReset").onclick = function () { score = { X: 0, O: 0, D: 0 }; store.set("ttt.score", score); labels(); };
+  $("#tMode").onclick = function (e) {
+    var bt = closest(e.target, "button"); if (!bt) { return; }
+    mode = bt.getAttribute("data-m"); store.set("ttt.mode", mode); score = { X: 0, O: 0, D: 0 }; store.set("ttt.score", score); starter = "X"; newRound();
+  };
+  window.onresize = function () { render([]); };
+  newRound();
+})();
+</script>
+</body>
+</html>

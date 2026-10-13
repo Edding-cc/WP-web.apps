@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Memory · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#mg { font-size: 0; -ms-touch-action: manipulation; touch-action: manipulation; }
+#mg .k { display: inline-block; vertical-align: top; border-radius: 12px; cursor: pointer; text-align: center; }
+#mg .k svg { width: 70%; height: 70%; margin-top: 15%; }
+#mg .k.gone { opacity: .35; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Memory</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="mSize"><button data-s="8">16 Karten</button><button data-s="10">20 Karten</button><button data-s="12">24 Karten</button></div>
+<div class="chips" id="mPl"><button data-p="1">1 Spieler</button><button data-p="2">2 Spieler</button></div>
+<div class="stats" id="mStats"></div>
+<div class="board" id="mg"></div>
+<p class="center" id="mMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c2"><button id="mNew2" class="ac">Neu mischen</button><button id="mPeek" class="tonal">Bestzeiten</button></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var SH = [
+    '<circle cx="12" cy="12" r="8"/>', '<rect x="4" y="4" width="16" height="16" rx="2"/>', '<path d="M12 3l9 17H3z"/>',
+    '<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z"/>', '<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/>',
+    '<path d="M12 2l9 10-9 10-9-10z"/>', '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>', '<path d="M15 3a9 9 0 1 0 6 15A8 8 0 0 1 15 3z"/>',
+    '<path d="M12 2l8.7 5v10L12 22l-8.7-5V7z"/>', '<path d="M3 12a9 9 0 0 1 18 0z"/><rect x="11" y="12" width="2" height="9"/>',
+    '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/>', '<path d="M4 4h7v7H4zM13 13h7v7h-7z"/>'
+  ];
+  var CL = ["#e0483e", "#3a6fe0", "#43b047", "#e8a91a", "#d14f9c", "#29a0c6", "#8e5bd1", "#ee7a22", "#00897b", "#795548", "#5c6bc0", "#c0ca33"];
+  var pairs = store.get("mem.size", 8), players = store.get("mem.pl", 1), best = store.get("mem.best", {});
+  var deck, open, lock, moves, found, t0, timer, turn, pts, started;
+
+  themeCss(function (t) { return "#mg .k{background:" + mix(t.ac, t.sf2, t.dark ? 0.55 : 0.75) + ";color:" + t.tx + "}#mg .k.up{background:" + t.sf2 + ";box-shadow:inset 0 0 0 2px " + t.bd + "}"; });
+
+  function cols() { return pairs === 8 ? 4 : pairs === 10 ? 4 : 4; }
+  function newGame() {
+    var ids = [], i;
+    for (i = 0; i < pairs; i++) { ids.push(i, i); }
+    shuffle(ids);
+    deck = []; for (i = 0; i < ids.length; i++) { deck.push({ id: ids[i], up: false, done: false }); }
+    open = []; lock = false; moves = 0; found = 0; turn = 0; pts = [0, 0]; started = false;
+    clearInterval(timer); $("#mMsg").textContent = players === 2 ? "Spieler 1 beginnt" : "";
+    layout(); stats(); chips();
+  }
+  function chips() {
+    var bs = $$("#mSize button"), i;
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-s") === pairs ? "true" : "false"); }
+    bs = $$("#mPl button");
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-p") === players ? "true" : "false"); }
+  }
+  function layout() {
+    var c = cols(), rows = deck.length / c, W = Math.min($("#mg").parentNode.clientWidth - 32, 440),
+        Hmax = (window.innerHeight || 640) - 300, gap = 6, s = Math.floor(Math.min((W - gap * c) / c, Math.max(56, (Hmax - gap * rows) / rows))), h = "", i;
+    for (i = 0; i < deck.length; i++) {
+      h += '<div class="k" data-i="' + i + '" style="width:' + s + "px;height:" + s + "px;margin:0 " + gap / 2 + "px " + gap + 'px"></div>';
+    }
+    $("#mg").style.width = (s + gap) * c + "px"; $("#mg").innerHTML = h;
+    for (i = 0; i < deck.length; i++) { draw(i); }
+  }
+  function draw(i) {
+    var k = deck[i], el = $$("#mg .k")[i];
+    el.className = "k" + (k.up || k.done ? " up" : "") + (k.done ? " gone" : "");
+    el.innerHTML = k.up || k.done ? '<svg viewBox="0 0 24 24" fill="' + CL[k.id] + '">' + SH[k.id] + "</svg>" : "";
+  }
+  function stats() {
+    var h;
+    if (players === 2) {
+      h = '<div' + (turn === 0 ? ' class="bg-acs"' : "") + "><b>" + pts[0] + "</b><span>Spieler 1</span></div><div" + (turn === 1 ? ' class="bg-acs"' : "") + "><b>" + pts[1] + "</b><span>Spieler 2</span></div>";
+    } else {
+      h = "<div><b>" + moves + "</b><span>Züge</span></div><div><b id='mT'>" + (started ? Math.floor((Date.now() - t0) / 1000) : 0) + "</b><span>Sekunden</span></div><div><b>" + (best[pairs] ? best[pairs].m + " / " + best[pairs].t + "s" : "–") + "</b><span>Beste (Züge/Zeit)</span></div>";
+    }
+    $("#mStats").innerHTML = h;
+  }
+  function flip(i) {
+    var k = deck[i];
+    if (lock || k.up || k.done) { return; }
+    if (!started) {
+      started = true; t0 = Date.now();
+      timer = setInterval(function () { var e = $("#mT"); if (e) { e.textContent = Math.floor((Date.now() - t0) / 1000); } }, 500);
+    }
+    k.up = true; draw(i); open.push(i);
+    if (open.length < 2) { return; }
+    moves++;
+    var a = deck[open[0]], b = deck[open[1]];
+    if (a.id === b.id) {
+      a.done = b.done = true; a.up = b.up = false; draw(open[0]); draw(open[1]); open = []; found++; pts[turn]++;
+      if (found === pairs) { finish(); }
+      stats();
+    } else {
+      lock = true;
+      setTimeout(function () {
+        a.up = b.up = false; draw(open[0]); draw(open[1]); open = []; lock = false;
+        if (players === 2) { turn = 1 - turn; $("#mMsg").textContent = "Spieler " + (turn + 1) + " ist dran"; }
+        stats();
+      }, 850);
+      stats();
+    }
+  }
+  function finish() {
+    clearInterval(timer);
+    var t = Math.round((Date.now() - t0) / 1000);
+    if (players === 2) {
+      $("#mMsg").textContent = pts[0] === pts[1] ? "Unentschieden!" : "Spieler " + (pts[0] > pts[1] ? 1 : 2) + " gewinnt!";
+    } else {
+      var b = best[pairs], rec = !b || moves < b.m || (moves === b.m && t < b.t);
+      if (rec) { best[pairs] = { m: moves, t: t }; store.set("mem.best", best); }
+      $("#mMsg").textContent = "Geschafft: " + moves + " Züge in " + t + " s" + (rec ? " – Rekord!" : "");
+    }
+  }
+  $("#mg").onclick = function (e) { var k = closest(e.target, ".k"); if (k) { flip(parseInt(k.getAttribute("data-i"), 10)); } };
+  $("#mSize").onclick = function (e) { var b = closest(e.target, "button"); if (b) { pairs = +b.getAttribute("data-s"); store.set("mem.size", pairs); newGame(); } };
+  $("#mPl").onclick = function (e) { var b = closest(e.target, "button"); if (b) { players = +b.getAttribute("data-p"); store.set("mem.pl", players); newGame(); } };
+  $("#mNew2").onclick = newGame;
+  $("#mPeek").onclick = function () {
+    var s = [8, 10, 12], out = [], i;
+    for (i = 0; i < 3; i++) { out.push(s[i] * 2 + " Karten: " + (best[s[i]] ? best[s[i]].m + " Züge, " + best[s[i]].t + " s" : "–")); }
+    alert("Bestwerte (1 Spieler)\n\n" + out.join("\n"));
+  };
+  window.onresize = function () { if (deck) { layout(); } };
+  if ([8, 10, 12].indexOf(pairs) < 0) { pairs = 8; }
+  newGame();
+})();
+</script>
+</body>
+</html>

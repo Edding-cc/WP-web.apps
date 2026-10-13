@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Einheitenrechner · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Einheitenrechner</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+<label class="fld" for="uCat">Kategorie</label><select id="uCat"></select>
+<label class="fld" for="uVal">Wert</label><input type="text" inputmode="decimal" autocomplete="off" id="uVal" class="mono" value="1">
+<div class="flex mt"><select id="uFrom" class="grow"></select><button class="btn tonal" id="uSwap" aria-label="Tauschen">⇄</button><select id="uTo" class="grow"></select></div>
+<div class="result center"><div class="big mono" id="uRes" style="font-size:30px;word-break:break-all">–</div><div class="muted" id="uResL"></div></div>
+<div class="row mt"><button class="btn tonal" id="uCopy">Ergebnis kopieren</button></div>
+</div>
+<div class="card"><h3>Alle Einheiten</h3><table class="tbl" id="uAll"></table></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  /* Faktor = Wert der Einheit in der Basiseinheit der Kategorie */
+  var CATS = [
+    { n: "Länge", u: [["mm", "Millimeter", 0.001], ["cm", "Zentimeter", 0.01], ["m", "Meter", 1], ["km", "Kilometer", 1000], ["in", "Zoll (inch)", 0.0254], ["ft", "Fuß (foot)", 0.3048], ["yd", "Yard", 0.9144], ["mi", "Meile", 1609.344], ["sm", "Seemeile", 1852]] },
+    { n: "Masse / Gewicht", u: [["mg", "Milligramm", 1e-6], ["g", "Gramm", 0.001], ["kg", "Kilogramm", 1], ["t", "Tonne", 1000], ["oz", "Unze (avdp.)", 0.028349523125], ["lb", "Pfund (lb)", 0.45359237], ["st", "Stone", 6.35029318]] },
+    { n: "Temperatur", u: [["°C", "Grad Celsius", "C"], ["°F", "Grad Fahrenheit", "F"], ["K", "Kelvin", "K"]] },
+    { n: "Fläche", u: [["mm²", "Quadratmillimeter", 1e-6], ["cm²", "Quadratzentimeter", 1e-4], ["m²", "Quadratmeter", 1], ["a", "Ar", 100], ["ha", "Hektar", 1e4], ["km²", "Quadratkilometer", 1e6], ["ft²", "Quadratfuß", 0.09290304], ["ac", "Acre", 4046.8564224], ["mi²", "Quadratmeile", 2589988.110336]] },
+    { n: "Volumen", u: [["ml", "Milliliter", 0.001], ["cl", "Zentiliter", 0.01], ["dl", "Deziliter", 0.1], ["l", "Liter", 1], ["m³", "Kubikmeter", 1000], ["fl oz", "US-Flüssigunze", 0.0295735295625], ["gal", "US-Gallone", 3.785411784], ["imp gal", "Imperiale Gallone", 4.54609], ["bbl", "Barrel (Öl)", 158.987294928]] },
+    { n: "Geschwindigkeit", u: [["m/s", "Meter pro Sekunde", 1], ["km/h", "Kilometer pro Stunde", 1 / 3.6], ["mph", "Meilen pro Stunde", 0.44704], ["kn", "Knoten", 1852 / 3600], ["ft/s", "Fuß pro Sekunde", 0.3048]] },
+    { n: "Zeit", u: [["ms", "Millisekunden", 0.001], ["s", "Sekunden", 1], ["min", "Minuten", 60], ["h", "Stunden", 3600], ["d", "Tage", 86400], ["Wo", "Wochen", 604800], ["J", "Jahre (365 Tage)", 31536000]] },
+    { n: "Datenmenge", u: [["bit", "Bit", 0.125], ["B", "Byte", 1], ["kB", "Kilobyte (1000)", 1e3], ["MB", "Megabyte", 1e6], ["GB", "Gigabyte", 1e9], ["TB", "Terabyte", 1e12], ["KiB", "Kibibyte (1024)", 1024], ["MiB", "Mebibyte", 1048576], ["GiB", "Gibibyte", 1073741824], ["TiB", "Tebibyte", 1099511627776]] },
+    { n: "Datenrate", u: [["bit/s", "Bit pro Sekunde", 1], ["kbit/s", "Kilobit pro Sekunde", 1e3], ["Mbit/s", "Megabit pro Sekunde", 1e6], ["Gbit/s", "Gigabit pro Sekunde", 1e9], ["kB/s", "Kilobyte pro Sekunde", 8e3], ["MB/s", "Megabyte pro Sekunde", 8e6], ["MiB/s", "Mebibyte pro Sekunde", 8388608]] },
+    { n: "Druck", u: [["Pa", "Pascal", 1], ["hPa", "Hektopascal", 100], ["kPa", "Kilopascal", 1000], ["bar", "Bar", 1e5], ["mbar", "Millibar", 100], ["psi", "Pfund pro Quadratzoll", 6894.757293168], ["atm", "Physikalische Atmosphäre", 101325], ["mmHg", "Millimeter Quecksilbersäule", 133.322387415]] },
+    { n: "Energie", u: [["J", "Joule", 1], ["kJ", "Kilojoule", 1000], ["cal", "Kalorie (thermochem.)", 4.184], ["kcal", "Kilokalorie", 4184], ["Wh", "Wattstunde", 3600], ["kWh", "Kilowattstunde", 3.6e6], ["eV", "Elektronenvolt", 1.602176634e-19]] },
+    { n: "Leistung", u: [["W", "Watt", 1], ["kW", "Kilowatt", 1000], ["MW", "Megawatt", 1e6], ["PS", "Pferdestärke (metrisch)", 735.49875], ["hp", "Horsepower (mech.)", 745.69987158227]] },
+    { n: "Winkel", u: [["°", "Grad", 1], ["rad", "Radiant", 180 / Math.PI], ["gon", "Gon", 0.9], ["′", "Bogenminute", 1 / 60], ["″", "Bogensekunde", 1 / 3600]] }
+  ];
+  var cfg = assign({ c: 0, f: 2, t: 3 }, store.get("units", {}));
+  function toBase(c, i, v) {
+    var f = CATS[c].u[i][2];
+    if (f === "C") { return v; } if (f === "F") { return (v - 32) * 5 / 9; } if (f === "K") { return v - 273.15; }
+    return v * f;
+  }
+  function fromBase(c, i, v) {
+    var f = CATS[c].u[i][2];
+    if (f === "C") { return v; } if (f === "F") { return v * 9 / 5 + 32; } if (f === "K") { return v + 273.15; }
+    return v / f;
+  }
+  function fillUnits() {
+    var u = CATS[cfg.c].u, h = "", i;
+    for (i = 0; i < u.length; i++) { h += '<option value="' + i + '">' + esc(u[i][0] + " – " + u[i][1]) + "</option>"; }
+    $("#uFrom").innerHTML = h; $("#uTo").innerHTML = h;
+    if (cfg.f >= u.length) { cfg.f = 0; } if (cfg.t >= u.length) { cfg.t = Math.min(1, u.length - 1); }
+    $("#uFrom").value = cfg.f; $("#uTo").value = cfg.t;
+  }
+  function calc() {
+    var v = parseNum($("#uVal").value), u = CATS[cfg.c].u, base, h = "", i;
+    store.set("units", cfg);
+    if (isNaN(v)) { $("#uRes").textContent = "–"; $("#uResL").textContent = "Zahl eingeben"; $("#uAll").innerHTML = ""; return; }
+    base = toBase(cfg.c, cfg.f, v);
+    $("#uRes").textContent = fmtG(fromBase(cfg.c, cfg.t, base)) + " " + u[cfg.t][0];
+    $("#uResL").textContent = fmtG(v) + " " + u[cfg.f][0] + " =";
+    for (i = 0; i < u.length; i++) { h += "<tr><td>" + esc(u[i][1]) + '</td><td class="mono" style="text-align:right">' + fmtG(fromBase(cfg.c, i, base)) + " " + esc(u[i][0]) + "</td></tr>"; }
+    $("#uAll").innerHTML = h;
+  }
+  var h = "", i;
+  for (i = 0; i < CATS.length; i++) { h += '<option value="' + i + '">' + CATS[i].n + "</option>"; }
+  $("#uCat").innerHTML = h; if (!CATS[cfg.c]) { cfg.c = 0; } $("#uCat").value = cfg.c;
+  $("#uCat").onchange = function () { cfg.c = +this.value; cfg.f = 0; cfg.t = 1; fillUnits(); calc(); };
+  $("#uFrom").onchange = function () { cfg.f = +this.value; calc(); };
+  $("#uTo").onchange = function () { cfg.t = +this.value; calc(); };
+  $("#uVal").oninput = calc; $("#uVal").onkeyup = calc;
+  $("#uSwap").onclick = function () { var x = cfg.f; cfg.f = cfg.t; cfg.t = x; $("#uFrom").value = cfg.f; $("#uTo").value = cfg.t; calc(); };
+  $("#uCopy").onclick = function () { if ($("#uRes").textContent !== "–") { copy($("#uRes").textContent); } };
+  fillUnits(); calc();
+})();
+</script>
+</body>
+</html>

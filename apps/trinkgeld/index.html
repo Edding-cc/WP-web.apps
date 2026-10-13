@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Trinkgeldrechner · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Trinkgeldrechner</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+<label class="fld" for="tgSum">Rechnungsbetrag (€)</label><input type="text" inputmode="decimal" autocomplete="off" id="tgSum" class="mono" style="font-size:22px" placeholder="0,00">
+<label class="fld">Trinkgeld</label><div class="chips" id="tgPct"></div>
+<label class="fld" for="tgOwn">Eigener Prozentsatz</label><input type="text" inputmode="decimal" autocomplete="off" id="tgOwn" class="mono" placeholder="z. B. 12">
+<label class="fld">Personen</label>
+<div class="flex"><button class="btn tonal" id="tgMinus" aria-label="Weniger">−</button><div class="grow center big" id="tgPpl" style="font-size:28px">1</div><button class="btn tonal" id="tgPlus" aria-label="Mehr">+</button></div>
+<div class="switch mt"><span>Pro Person auf ganze Euro aufrunden</span><button class="tg" id="tgRound" aria-pressed="false" aria-label="Aufrunden"></button></div>
+</div>
+<div class="card">
+<div class="stats"><div><b id="tgTip">–</b><span>Trinkgeld</span></div><div><b id="tgTot">–</b><span>Gesamt</span></div></div>
+<div class="result center"><div class="muted">Pro Person</div><div class="big" id="tgEach">–</div><div class="muted" id="tgNote" style="font-size:13px"></div></div>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var PCTS = [0, 5, 10, 15, 20];
+  var s = assign({ sum: "", pct: 10, own: "", ppl: 1, round: false }, store.get("tip", {}));
+  function eur(v) { return nf(v, 2) + " €"; }
+  function draw() {
+    var h = "", i;
+    for (i = 0; i < PCTS.length; i++) { h += '<button data-p="' + PCTS[i] + '" aria-pressed="' + (s.own === "" && s.pct === PCTS[i]) + '">' + PCTS[i] + " %</button>"; }
+    $("#tgPct").innerHTML = h;
+    $("#tgPpl").textContent = s.ppl;
+    $("#tgRound").setAttribute("aria-pressed", s.round ? "true" : "false");
+    var sum = parseNum(s.sum), p = s.own !== "" ? parseNum(s.own) : s.pct;
+    store.set("tip", s);
+    if (isNaN(sum) || isNaN(p) || sum < 0) { $("#tgTip").textContent = $("#tgTot").textContent = $("#tgEach").textContent = "–"; $("#tgNote").textContent = ""; return; }
+    var tip = sum * p / 100, tot = sum + tip, each = tot / s.ppl, note = "";
+    if (s.round) {
+      var r = Math.ceil(each - 1e-9);
+      if (r !== each) { tot = r * s.ppl; tip = tot - sum; note = "aufgerundet, effektiv " + nf(sum ? tip / sum * 100 : 0, 1) + " % Trinkgeld"; }
+      each = r;
+    }
+    $("#tgTip").textContent = eur(tip); $("#tgTot").textContent = eur(tot); $("#tgEach").textContent = eur(each); $("#tgNote").textContent = note;
+  }
+  $("#tgSum").value = s.sum; $("#tgOwn").value = s.own;
+  $("#tgSum").oninput = $("#tgSum").onkeyup = function () { s.sum = this.value; draw(); };
+  $("#tgOwn").oninput = $("#tgOwn").onkeyup = function () { s.own = this.value.replace(/\s+/g, ""); draw(); };
+  $("#tgPct").onclick = function (e) { var b = closest(e.target, "button"); if (b) { s.pct = +b.getAttribute("data-p"); s.own = ""; $("#tgOwn").value = ""; draw(); } };
+  onPress($("#tgMinus"), function () { if (s.ppl > 1) { s.ppl--; draw(); } }, 150);
+  onPress($("#tgPlus"), function () { if (s.ppl < 99) { s.ppl++; draw(); } }, 150);
+  $("#tgRound").onclick = function () { s.round = !s.round; draw(); };
+  draw();
+})();
+</script>
+</body>
+</html>

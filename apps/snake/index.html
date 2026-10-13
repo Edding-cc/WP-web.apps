@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Snake · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#sc { display: block; border-radius: 12px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Snake</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="sSpeed"><button data-v="0">Langsam</button><button data-v="1">Normal</button><button data-v="2">Schnell</button><button id="sWrap">Durch Wände</button></div>
+<div class="stats"><div><b id="sScore">0</b><span>Punkte</span></div><div><b id="sBest">0</b><span>Rekord</span></div></div>
+<div class="board" id="sBoard"><canvas id="sc"></canvas></div>
+<p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600">Tippe auf Start</p>
+<div class="ctl" id="sPad">
+<button id="sStart" class="ac">Start</button><button data-d="up" aria-label="Hoch">↑</button><button id="sNew" class="tonal">Neu</button>
+<button data-d="left" aria-label="Links">←</button><button data-d="down" aria-label="Runter">↓</button><button data-d="right" aria-label="Rechts">→</button>
+</div>
+<p class="muted" style="font-size:14px">Steuern per Pfeiltasten oder Wischen über das Spielfeld. Die Schlange wird mit jedem Futter länger und etwas schneller.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var G = 17, SPEEDS = [190, 140, 95];
+  var cv = $("#sc"), ctx = cv.getContext("2d"), px = 0;
+  var speed = store.get("snake.speed", 1), wrap = store.get("snake.wrap", false), best = store.get("snake.best", 0);
+  var snake, dir, queue, food, score, running = false, dead = false, timer = 0;
+
+  function chips() {
+    var bs = $$("#sSpeed button[data-v]");
+    for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-v") === speed ? "true" : "false"); }
+    $("#sWrap").setAttribute("aria-pressed", wrap ? "true" : "false");
+    $("#sBest").textContent = best;
+  }
+  function size() {
+    var W = Math.min($("#sBoard").parentNode.clientWidth - 32, 420), r = window.devicePixelRatio || 1;
+    px = W / G;
+    cv.style.width = cv.style.height = W + "px"; $("#sBoard").style.width = W + "px";
+    cv.width = cv.height = Math.round(W * r);
+    ctx.setTransform(r, 0, 0, r, 0, 0);
+    draw();
+  }
+  function reset() {
+    var m = Math.floor(G / 2);
+    snake = [[m, m], [m - 1, m], [m - 2, m]]; dir = "right"; queue = []; score = 0; dead = false;
+    placeFood(); $("#sScore").textContent = 0;
+  }
+  function placeFood() {
+    var free = [], x, y, i, hit;
+    for (y = 0; y < G; y++) { for (x = 0; x < G; x++) {
+      hit = false; for (i = 0; i < snake.length; i++) { if (snake[i][0] === x && snake[i][1] === y) { hit = true; break; } }
+      if (!hit) { free.push([x, y]); }
+    } }
+    food = free.length ? free[rnd(free.length)] : null;
+  }
+  var OPP = { up: "down", down: "up", left: "right", right: "left" };
+  function turn(d) {
+    if (dead) { return; }
+    var last = queue.length ? queue[queue.length - 1] : dir;
+    if (d !== last && d !== OPP[last] && queue.length < 3) { queue.push(d); }
+    if (!running) { start(); }
+  }
+  function step() {
+    if (queue.length) { dir = queue.shift(); }
+    var h = snake[0], x = h[0] + (dir === "right" ? 1 : dir === "left" ? -1 : 0), y = h[1] + (dir === "down" ? 1 : dir === "up" ? -1 : 0), i;
+    if (wrap) { x = (x + G) % G; y = (y + G) % G; }
+    else if (x < 0 || y < 0 || x >= G || y >= G) { return die(); }
+    var eat = food && x === food[0] && y === food[1];
+    for (i = 0; i < snake.length - (eat ? 0 : 1); i++) { if (snake[i][0] === x && snake[i][1] === y) { return die(); } }
+    snake.unshift([x, y]);
+    if (eat) { score++; $("#sScore").textContent = score; placeFood(); } else { snake.pop(); }
+    draw();
+    timer = setTimeout(step, Math.max(55, SPEEDS[speed] - score * 2));
+  }
+  function die() {
+    running = false; dead = true; draw();
+    if (score > best) { best = score; store.set("snake.best", best); }
+    chips();
+    $("#sMsg").textContent = "Vorbei! " + score + " Punkte – tippe auf Neu";
+    $("#sStart").textContent = "Start";
+  }
+  function start() {
+    if (dead) { reset(); }
+    if (running) { return; }
+    running = true; $("#sMsg").textContent = ""; $("#sStart").textContent = "Pause";
+    clearTimeout(timer); timer = setTimeout(step, SPEEDS[speed]);
+  }
+  function pause() {
+    if (!running) { return; }
+    running = false; clearTimeout(timer); $("#sMsg").textContent = "Pause"; $("#sStart").textContent = "Weiter";
+  }
+  function cell(x, y, inset, col) { ctx.fillStyle = col; ctx.fillRect(x * px + inset, y * px + inset, px - inset * 2, px - inset * 2); }
+  function draw() {
+    var t = getTheme(), i, W = px * G;
+    ctx.fillStyle = t.sf2; ctx.fillRect(0, 0, W, W);
+    if (!wrap) { ctx.strokeStyle = t.bd; ctx.lineWidth = 2; ctx.strokeRect(1, 1, W - 2, W - 2); }
+    if (food) { ctx.fillStyle = t.err; ctx.beginPath(); ctx.arc((food[0] + 0.5) * px, (food[1] + 0.5) * px, px * 0.38, 0, Math.PI * 2); ctx.fill(); }
+    if (!snake) { return; }
+    for (i = snake.length - 1; i >= 0; i--) { cell(snake[i][0], snake[i][1], 1, i ? t.ac : (dead ? t.err : t.tx)); }
+  }
+
+  onSwipe($("#sBoard"), turn, 16);
+  onArrows(function (d) { turn(d); });
+  var bs = $$("#sPad button[data-d]");
+  for (var i = 0; i < bs.length; i++) { (function (b) { onPress(b, function () { turn(b.getAttribute("data-d")); }); })(bs[i]); }
+  onPress($("#sStart"), function () { if (running) { pause(); } else { start(); } });
+  onPress($("#sNew"), function () { clearTimeout(timer); running = false; reset(); draw(); $("#sStart").textContent = "Start"; $("#sMsg").textContent = "Tippe auf Start"; });
+  $("#sSpeed").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    if (b.id === "sWrap") { wrap = !wrap; store.set("snake.wrap", wrap); }
+    else { speed = parseInt(b.getAttribute("data-v"), 10); store.set("snake.speed", speed); }
+    chips(); draw();
+  };
+  document.addEventListener("visibilitychange", function () { if (document.hidden) { pause(); } }, false);
+  document.addEventListener("msvisibilitychange", function () { if (document.msHidden) { pause(); } }, false);
+  window.onblur = pause;
+  window.onresize = size;
+  reset(); chips(); size();
+})();
+</script>
+</body>
+</html>

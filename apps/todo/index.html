@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>To-do-Liste · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>To-do-Liste</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+<div class="flex"><input type="text" id="tdIn" class="grow" placeholder="Neue Aufgabe …" maxlength="300"><button class="btn" id="tdAdd">+</button></div>
+<div class="chips mt" id="tdPrio"><button data-p="0" aria-pressed="true">Normal</button><button data-p="1">Wichtig</button></div>
+</div>
+<div class="row between"><div class="seg" id="tdFilter"><button data-f="open">Offen</button><button data-f="done">Erledigt</button><button data-f="all">Alle</button></div><span class="muted" id="tdCount" style="font-size:14px"></span></div>
+<div class="card mt" id="tdList"></div>
+<button class="btn text" id="tdClear">Erledigte entfernen</button>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var items = store.get("todo", []), filter = store.get("todo.filter", "open"), prio = 0;
+  function persist() { store.set("todo", items); }
+  function draw() {
+    var h = "", i, it, open = 0, shown = 0, order = items.slice();
+    order.sort(function (a, b) { return (a.d ? 1 : 0) - (b.d ? 1 : 0) || (b.p || 0) - (a.p || 0) || b.c - a.c; });
+    for (i = 0; i < order.length; i++) {
+      it = order[i]; if (!it.d) { open++; }
+      if ((filter === "open" && it.d) || (filter === "done" && !it.d)) { continue; }
+      shown++;
+      h += '<div class="list-item" style="align-items:center"><button class="cb" data-a="tog" data-id="' + it.id + '" aria-pressed="' + (it.d ? "true" : "false") + '" aria-label="Erledigt">' + (it.d ? "✓" : "") + "</button>" +
+        '<div class="grow"' + (it.d ? ' style="text-decoration:line-through;opacity:.6"' : "") + ">" + (it.p ? '<span class="badge err">wichtig</span> ' : "") + esc(it.t) + "</div>" +
+        '<button class="btn text" data-a="del" data-id="' + it.id + '" aria-label="Löschen">✕</button></div>';
+    }
+    $("#tdList").innerHTML = shown ? h : '<p class="muted" style="margin:0">' + (filter === "done" ? "Noch nichts erledigt." : filter === "open" && items.length ? "Alles erledigt!" : "Keine Aufgaben.") + "</p>";
+    $("#tdCount").textContent = open + " offen · " + (items.length - open) + " erledigt";
+    var bs = $$("#tdFilter button");
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-f") === filter ? "true" : "false"); }
+  }
+  function byId(id) { for (var i = 0; i < items.length; i++) { if (items[i].id === id) { return i; } } return -1; }
+  function add() {
+    var t = $("#tdIn").value.replace(/^\s+|\s+$/g, "");
+    if (!t) { $("#tdIn").focus(); return; }
+    items.push({ id: String(Date.now()) + rnd(1000), t: t, d: false, p: prio, c: Date.now() });
+    $("#tdIn").value = ""; persist(); if (filter === "done") { filter = "open"; } draw();
+  }
+  $("#tdAdd").onclick = add;
+  $("#tdIn").onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); add(); } };
+  $("#tdPrio").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    prio = +b.getAttribute("data-p");
+    var bs = $$("#tdPrio button"); for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i] === b ? "true" : "false"); }
+  };
+  $("#tdList").onclick = function (e) {
+    var b = closest(e.target, "[data-a]"); if (!b) { return; }
+    var i = byId(b.getAttribute("data-id")); if (i < 0) { return; }
+    if (b.getAttribute("data-a") === "tog") { items[i].d = !items[i].d; }
+    else { items.splice(i, 1); }
+    persist(); draw();
+  };
+  $("#tdFilter").onclick = function (e) { var b = closest(e.target, "button"); if (b) { filter = b.getAttribute("data-f"); store.set("todo.filter", filter); draw(); } };
+  $("#tdClear").onclick = function () {
+    var n = 0, i; for (i = 0; i < items.length; i++) { if (items[i].d) { n++; } }
+    if (!n) { toast("Nichts zu entfernen"); return; }
+    if (!confirm(n + " erledigte Aufgabe(n) entfernen?")) { return; }
+    items = items.filter(function (x) { return !x.d; }); persist(); draw();
+  };
+  draw();
+})();
+</script>
+</body>
+</html>

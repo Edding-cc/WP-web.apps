@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Zahlensysteme · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.nb input { font-family: Consolas, "Courier New", monospace; font-size: 18px; }
+#zBits { font-family: Consolas, "Courier New", monospace; font-size: 15px; word-break: break-all; line-height: 1.7; }
+#qTask { font-size: 30px; font-weight: 700; font-family: Consolas, "Courier New", monospace; word-break: break-all; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Zahlensysteme</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="zMode" style="margin-bottom:12px"><button data-m="conv">Umrechnen</button><button data-m="quiz">Üben</button></div>
+<div id="zConv">
+<div class="card nb">
+<label class="fld" for="zDec">Dezimal (10)</label><input type="tel" id="zDec" data-b="10" autocomplete="off">
+<label class="fld" for="zBin">Binär (2)</label><input type="tel" id="zBin" data-b="2" autocomplete="off">
+<label class="fld" for="zHex">Hexadezimal (16)</label><input type="text" id="zHex" data-b="16" autocomplete="off" autocapitalize="characters">
+<label class="fld" for="zOct">Oktal (8)</label><input type="tel" id="zOct" data-b="8" autocomplete="off">
+<p class="err" id="zErr" style="margin:8px 0 0;min-height:1.5em"></p>
+</div>
+<div class="card"><h3>Bits</h3><div id="zBits"></div></div>
+<div class="card"><h3>Stellenwerte (8 Bit)</h3><table class="tbl" id="zPlace"></table></div>
+</div>
+<div id="zQuiz" hidden>
+<div class="card">
+<label class="fld">Aufgabe</label><div class="chips" id="qDir"></div>
+<label class="fld">Zahlenbereich</label><div class="chips" id="qRange"><button data-r="4">4 Bit (0–15)</button><button data-r="8">8 Bit (0–255)</button><button data-r="16">16 Bit</button></div>
+</div>
+<div class="card center">
+<div class="muted" id="qQ"></div><div id="qTask"></div>
+<input type="text" id="qAns" class="mono mt" autocomplete="off" autocapitalize="characters" style="font-size:22px;text-align:center">
+<p id="qFb" style="min-height:1.5em;font-weight:600;margin:8px 0 0"></p>
+</div>
+<div class="ctl"><button id="qSkip" class="tonal">Lösung</button><button id="qCheck" class="ac">Prüfen</button><button id="qNext" class="tonal">Weiter</button></div>
+<div class="stats"><div><b id="qOk">0</b><span>Richtig</span></div><div><b id="qBad">0</b><span>Falsch</span></div><div><b id="qStreak">0</b><span>Serie</span></div><div><b id="qBest">0</b><span>Beste Serie</span></div></div>
+<button class="btn text" id="qReset">Statistik zurücksetzen</button>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var MAX = 9007199254740991;
+  var RE = { 2: /^[01]+$/, 8: /^[0-7]+$/, 10: /^\d+$/, 16: /^[0-9a-f]+$/i };
+  var fields = $$(".nb input");
+  function clean(v, b) { v = v.replace(/[\s_.']/g, ""); if (b === 16) { v = v.replace(/^0x/i, ""); } if (b === 2) { v = v.replace(/^0b/i, ""); } return v; }
+  function group(s, n) { var o = ""; while (s.length > n) { o = " " + s.slice(-n) + o; s = s.slice(0, -n); } return s + o; }
+  function update(src) {
+    var b = +src.getAttribute("data-b"), v = clean(src.value, b), n, i;
+    $("#zErr").textContent = "";
+    if (!v) { for (i = 0; i < fields.length; i++) { if (fields[i] !== src) { fields[i].value = ""; } } bits(null); return; }
+    if (!RE[b].test(v)) { $("#zErr").textContent = "Ungültige Ziffer für Basis " + b; return; }
+    n = parseInt(v, b);
+    if (n > MAX) { $("#zErr").textContent = "Zahl zu groß (max. 2^53 − 1)"; return; }
+    for (i = 0; i < fields.length; i++) {
+      var fb = +fields[i].getAttribute("data-b");
+      if (fields[i] !== src) { fields[i].value = fb === 10 ? String(n) : group(n.toString(fb).toUpperCase(), fb === 2 ? 4 : fb === 16 ? 4 : 3); }
+    }
+    store.set("zs.n", n);
+    bits(n);
+  }
+  function bits(n) {
+    if (n == null) { $("#zBits").innerHTML = '<span class="muted">Zahl eingeben</span>'; return; }
+    var s = n.toString(2), w = s.length <= 8 ? 8 : s.length <= 16 ? 16 : s.length <= 32 ? 32 : Math.ceil(s.length / 8) * 8;
+    while (s.length < w) { s = "0" + s; }
+    var h = group(s, 4) + '<br><span class="muted">' + w + " Bit · " + s.replace(/0/g, "").length + " Einsen";
+    if (n < 4294967296 && w <= 32) { var signed = n >= Math.pow(2, w - 1) ? n - Math.pow(2, w) : n; h += " · als " + w + "-Bit vorzeichenbehaftet: " + signed; }
+    if (n >= 32 && n < 127) { h += " · ASCII: „" + String.fromCharCode(n) + "“"; }
+    $("#zBits").innerHTML = h + "</span>";
+    var t = "<tr>", i, b8 = (n & 255).toString(2); while (b8.length < 8) { b8 = "0" + b8; }
+    for (i = 7; i >= 0; i--) { t += '<th style="text-align:center">' + Math.pow(2, i) + "</th>"; }
+    t += "</tr><tr>";
+    for (i = 0; i < 8; i++) { t += '<td class="mono" style="text-align:center;font-size:18px' + (b8.charAt(i) === "1" ? ";font-weight:700" : ";opacity:.5") + '">' + b8.charAt(i) + "</td>"; }
+    $("#zPlace").innerHTML = t + "</tr>" + (n > 255 ? '<tr><td colspan="8" class="muted" style="font-size:12px">Unterste 8 Bit von ' + n + "</td></tr>" : "");
+  }
+  for (var i = 0; i < fields.length; i++) { fields[i].oninput = fields[i].onkeyup = function () { update(this); }; }
+
+  /* ---------- Übungsmodus ---------- */
+  var DIRS = [["10-2", "Dez → Bin"], ["2-10", "Bin → Dez"], ["10-16", "Dez → Hex"], ["16-10", "Hex → Dez"], ["2-16", "Bin → Hex"], ["16-2", "Hex → Bin"], ["mix", "Gemischt"]];
+  var NAME = { 2: "binär", 10: "dezimal", 16: "hexadezimal" };
+  var q = assign({ dir: "10-2", r: 8, ok: 0, bad: 0, streak: 0, best: 0 }, store.get("zs.quiz", {})), task = null;
+  var dh = ""; for (i = 0; i < DIRS.length; i++) { dh += '<button data-d="' + DIRS[i][0] + '">' + DIRS[i][1] + "</button>"; }
+  $("#qDir").innerHTML = dh;
+  function fmtIn(n, b) { var s = n.toString(b).toUpperCase(); if (b === 2) { var w = q.r; while (s.length < Math.min(w, 8) && s.length % 4) { s = "0" + s; } return group(s, 4); } return s; }
+  function newTask() {
+    var d = q.dir === "mix" ? DIRS[rnd(6)][0] : q.dir, p = d.split("-"), n = rnd(Math.pow(2, q.r));
+    task = { n: n, from: +p[0], to: +p[1], done: false };
+    $("#qQ").textContent = "Wandle " + NAME[task.from] + " in " + NAME[task.to] + " um:";
+    $("#qTask").textContent = fmtIn(n, task.from) + (task.from === 16 ? "h" : task.from === 2 ? "b" : "");
+    $("#qAns").value = ""; $("#qFb").textContent = ""; $("#qFb").className = "";
+    try { $("#qAns").focus(); } catch (e) {}
+  }
+  function stats() {
+    $("#qOk").textContent = q.ok; $("#qBad").textContent = q.bad; $("#qStreak").textContent = q.streak; $("#qBest").textContent = q.best;
+    var bs = $$("#qDir button"), j;
+    for (j = 0; j < bs.length; j++) { bs[j].setAttribute("aria-pressed", bs[j].getAttribute("data-d") === q.dir ? "true" : "false"); }
+    bs = $$("#qRange button");
+    for (j = 0; j < bs.length; j++) { bs[j].setAttribute("aria-pressed", +bs[j].getAttribute("data-r") === q.r ? "true" : "false"); }
+    store.set("zs.quiz", q);
+  }
+  function check() {
+    if (!task || task.done) { newTask(); return; }
+    var v = clean($("#qAns").value, task.to);
+    if (!v) { return; }
+    var right = RE[task.to].test(v) && parseInt(v, task.to) === task.n;
+    task.done = true;
+    if (right) { q.ok++; q.streak++; q.best = Math.max(q.best, q.streak); $("#qFb").textContent = "Richtig!"; $("#qFb").className = "ok"; }
+    else { q.bad++; q.streak = 0; $("#qFb").textContent = "Leider falsch. Lösung: " + fmtIn(task.n, task.to); $("#qFb").className = "err"; }
+    stats();
+  }
+  $("#qCheck").onclick = check;
+  $("#qAns").onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); check(); } };
+  $("#qNext").onclick = newTask;
+  $("#qSkip").onclick = function () { if (task && !task.done) { task.done = true; q.streak = 0; stats(); $("#qFb").textContent = "Lösung: " + fmtIn(task.n, task.to); $("#qFb").className = "muted"; } };
+  $("#qDir").onclick = function (e) { var b = closest(e.target, "button"); if (b) { q.dir = b.getAttribute("data-d"); stats(); newTask(); } };
+  $("#qRange").onclick = function (e) { var b = closest(e.target, "button"); if (b) { q.r = +b.getAttribute("data-r"); stats(); newTask(); } };
+  $("#qReset").onclick = function () { q.ok = q.bad = q.streak = q.best = 0; stats(); };
+
+  function setMode(m) {
+    store.set("zs.mode", m);
+    $("#zConv").hidden = m !== "conv"; $("#zQuiz").hidden = m !== "quiz";
+    var bs = $$("#zMode button"); for (var j = 0; j < bs.length; j++) { bs[j].setAttribute("aria-pressed", bs[j].getAttribute("data-m") === m ? "true" : "false"); }
+    if (m === "quiz" && !task) { newTask(); }
+  }
+  $("#zMode").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setMode(b.getAttribute("data-m")); } };
+  $("#zDec").value = store.get("zs.n", 42); update($("#zDec"));
+  stats(); setMode(store.get("zs.mode", "conv") === "quiz" ? "quiz" : "conv");
+})();
+</script>
+</body>
+</html>

@@ -21,7 +21,7 @@
 </div>
 <div class="card">
   <h3>Daten</h3>
-  <p class="muted" style="font-size:14px;margin:0 0 10px">Einstellungen, Verknüpfungen und Verlauf liegen nur in diesem Browser auf diesem Gerät.</p>
+  <p class="muted" style="font-size:14px;margin:0 0 10px">Einstellungen, Verknüpfungen, Notizen, Aufgaben, Verläufe und Spielstände liegen nur in diesem Browser auf diesem Gerät.</p>
   <button class="btn danger" id="wipe">Alle lokalen Daten löschen</button>
 </div>
 </main>
@@ -42,7 +42,7 @@
   };
   $("#oled").onclick = function () { settings.oled = !settings.oled; saveSettings(); draw(); };
   $("#wipe").onclick = function () {
-    if (!confirm("Alle gespeicherten Einstellungen, Verknüpfungen und Verläufe löschen?")) { return; }
+    if (!confirm("Alle gespeicherten Einstellungen, Verknüpfungen, Notizen, Aufgaben, Verläufe und Spielstände löschen?")) { return; }
     store.wipe(); location.reload();
   };
 })();

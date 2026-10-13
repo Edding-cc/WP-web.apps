@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Schiebepuzzle · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#pz { border-radius: 12px; }
+#pz .t { position: absolute; border-radius: 10px; text-align: center; font-weight: 700; cursor: pointer; -ms-transition: left .1s, top .1s; transition: left .1s, top .1s; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Schiebepuzzle</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="pSize"><button data-n="3">3×3</button><button data-n="4">4×4</button><button data-n="5">5×5</button></div>
+<div class="stats"><div><b id="pMoves">0</b><span>Züge</span></div><div><b id="pTime">0:00</b><span>Zeit</span></div><div><b id="pBest">–</b><span>Beste Züge</span></div></div>
+<div class="board" id="pz"></div>
+<p class="center" id="pMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c2"><button id="pNew" class="ac">Mischen</button><button id="pHelp" class="tonal">Ziel zeigen</button></div>
+<p class="muted" style="font-size:14px">Tippe auf ein Feld in der Reihe oder Spalte der Lücke oder wische. Ziel: Zahlen der Reihe nach, Lücke unten rechts.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var n = store.get("pz.n", 4), g, moves, t0, tmr, started, done, best = store.get("pz.best", {});
+  if ([3, 4, 5].indexOf(n) < 0) { n = 4; }
+  themeCss(function (t) { return "#pz{background:" + t.sf2 + "}#pz .t{background:" + t.ac + ";color:" + t.onac + "}#pz .t.ok{background:" + t.acs + ";color:" + t.tx + "}"; });
+
+  function solved() { for (var i = 0; i < n * n - 1; i++) { if (g[i] !== i + 1) { return false; } } return true; }
+  function newGame() {
+    var i, blank, last = -1, nbs, k;
+    g = []; for (i = 1; i < n * n; i++) { g.push(i); } g.push(0);
+    blank = n * n - 1;
+    for (i = 0; i < n * n * 40 || solved(); i++) {
+      nbs = around(blank); k = nbs[rnd(nbs.length)];
+      if (k === last) { continue; }
+      g[blank] = g[k]; g[k] = 0; last = blank; blank = k;
+    }
+    moves = 0; started = false; done = false; clearInterval(tmr);
+    $("#pTime").textContent = "0:00"; $("#pMsg").textContent = "";
+    var bs = $$("#pSize button");
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-n") === n ? "true" : "false"); }
+    $("#pBest").textContent = best[n] || "–";
+    render();
+  }
+  function around(i) {
+    var x = i % n, y = Math.floor(i / n), o = [];
+    if (x > 0) { o.push(i - 1); } if (x < n - 1) { o.push(i + 1); } if (y > 0) { o.push(i - n); } if (y < n - 1) { o.push(i + n); }
+    return o;
+  }
+  function render() {
+    var W = Math.min($("#pz").parentNode.clientWidth - 32, 420), gap = 5, s = (W - gap * (n + 1)) / n, h = "", i;
+    $("#pz").style.width = $("#pz").style.height = W + "px";
+    for (i = 0; i < n * n; i++) {
+      if (!g[i]) { continue; }
+      h += '<div class="t' + (g[i] === i + 1 ? " ok" : "") + '" data-i="' + i + '" style="left:' + (gap + (i % n) * (s + gap)) + "px;top:" + (gap + Math.floor(i / n) * (s + gap)) +
+        "px;width:" + s + "px;height:" + s + "px;line-height:" + s + "px;font-size:" + Math.round(s * 0.42) + 'px">' + g[i] + "</div>";
+    }
+    $("#pz").innerHTML = h; $("#pMoves").textContent = moves;
+  }
+  function tapAt(i) {
+    if (done) { return; }
+    var b = g.indexOf(0), bx = b % n, by = Math.floor(b / n), x = i % n, y = Math.floor(i / n), step, k;
+    if (x !== bx && y !== by) { return; }
+    if (i === b) { return; }
+    step = x === bx ? (y > by ? n : -n) : (x > bx ? 1 : -1);
+    for (k = b; k !== i; k += step) { g[k] = g[k + step]; }
+    g[i] = 0; moved();
+  }
+  function swipe(d) {
+    var b = g.indexOf(0), x = b % n, y = Math.floor(b / n);
+    if (d === "left" && x < n - 1) { tapAt(b + 1); } else if (d === "right" && x > 0) { tapAt(b - 1); }
+    else if (d === "up" && y < n - 1) { tapAt(b + n); } else if (d === "down" && y > 0) { tapAt(b - n); }
+  }
+  function moved() {
+    moves++;
+    if (!started) { started = true; t0 = Date.now(); tmr = setInterval(function () { $("#pTime").textContent = fmtDur(Date.now() - t0); }, 500); }
+    render();
+    if (solved()) {
+      done = true; clearInterval(tmr);
+      var rec = !best[n] || moves < best[n];
+      if (rec) { best[n] = moves; store.set("pz.best", best); $("#pBest").textContent = moves; }
+      $("#pMsg").textContent = "Gelöst: " + moves + " Züge, " + fmtDur(Date.now() - t0) + (rec ? " – Rekord!" : "");
+    }
+  }
+  $("#pz").onclick = function (e) { var t = closest(e.target, ".t"); if (t) { tapAt(parseInt(t.getAttribute("data-i"), 10)); } };
+  onSwipe($("#pz"), swipe, 30);
+  onArrows(swipe);
+  $("#pNew").onclick = newGame;
+  $("#pHelp").onclick = function () {
+    var r = [], i, row;
+    for (i = 0; i < n; i++) { row = []; for (var j = 0; j < n; j++) { var v = i * n + j + 1; row.push(v === n * n ? "□" : v); } r.push(row.join("  ")); }
+    alert("Ziel:\n\n" + r.join("\n"));
+  };
+  $("#pSize").onclick = function (e) { var b = closest(e.target, "button"); if (b) { n = +b.getAttribute("data-n"); store.set("pz.n", n); newGame(); } };
+  window.onresize = render;
+  newGame();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Sudoku · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#sg { border-collapse: collapse; margin: 0 auto; table-layout: fixed; -ms-touch-action: manipulation; touch-action: manipulation; }
+#sg td { padding: 0; text-align: center; vertical-align: middle; cursor: pointer; font-weight: 600; overflow: hidden; }
+#sg td.g { font-weight: 700; }
+#sg .nt { font-size: 0; line-height: 0; }
+#sg .nt i { display: inline-block; width: 33.3%; font-style: normal; font-weight: 400; text-align: center; }
+#sPad2 button { font-size: 22px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Sudoku</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="sLvl"><button data-l="0">Leicht</button><button data-l="1">Mittel</button><button data-l="2">Schwer</button></div>
+<div class="stats"><div><b id="sTime">0:00</b><span>Zeit</span></div><div><b id="sLeft">–</b><span>Offen</span></div><div><b id="sErr">0</b><span>Fehler</span></div></div>
+<div class="board" id="sBoard"><table id="sg"></table></div>
+<p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c5" id="sPad2"></div>
+<div class="ctl"><button id="sNotes" class="tonal">Notizen: aus</button><button id="sHint" class="tonal">Tipp</button><button id="sNew" class="ac">Neu</button></div>
+<div class="card"><div class="switch"><span>Fehler sofort markieren</span><button class="tg" id="sShowErr" aria-pressed="false" aria-label="Fehler markieren"></button></div></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var GIVENS = [38, 31, 26];
+  var st = store.get("sudoku", null), sel = -1, notesMode = false, showErr = store.get("sudoku.err", true), tmr = 0;
+  var lvl = store.get("sudoku.lvl", 1);
+
+  themeCss(function (t) {
+    return "#sg td{border:1px solid " + t.bd + ";background:" + t.sf + ";color:" + t.link + "}#sg td.g{color:" + t.tx + "}" +
+      "#sg td.b3{border-right:2px solid " + t.mu + "}#sg td.r3{border-bottom:2px solid " + t.mu + "}#sg{border:2px solid " + t.mu + "}" +
+      "#sg td.same{background:" + t.sf2 + "}#sg td.sel{background:" + t.acs + "}#sg td.bad{color:" + t.err + "}#sg .nt i{color:" + t.mu + "}";
+  });
+
+  /* ---------- Löser mit Bitmasken (zählt Lösungen bis limit) ---------- */
+  var BOX = []; (function () { for (var i = 0; i < 81; i++) { BOX.push(Math.floor(Math.floor(i / 9) / 3) * 3 + Math.floor(i % 9 / 3)); } })();
+  function bits(m) { var c = 0; while (m) { m &= m - 1; c++; } return c; }
+  function solve(g, limit, randomize) {
+    var R = [0, 0, 0, 0, 0, 0, 0, 0, 0], C = R.slice(), B = R.slice(), i, v, count = 0;
+    for (i = 0; i < 81; i++) {
+      v = g[i]; if (!v) { continue; }
+      var b = 1 << v;
+      if ((R[Math.floor(i / 9)] | C[i % 9] | B[BOX[i]]) & b) { return 0; }
+      R[Math.floor(i / 9)] |= b; C[i % 9] |= b; B[BOX[i]] |= b;
+    }
+    function rec() {
+      var best = -1, bestMask = 0, bestN = 10, k, m, n;
+      for (k = 0; k < 81; k++) {
+        if (g[k]) { continue; }
+        m = ~(R[Math.floor(k / 9)] | C[k % 9] | B[BOX[k]]) & 0x3FE; n = bits(m);
+        if (n < bestN) { best = k; bestMask = m; bestN = n; if (n <= 1) { break; } }
+      }
+      if (best < 0) { count++; return count >= limit; }
+      if (!bestN) { return false; }
+      var cand = [], d;
+      for (d = 1; d <= 9; d++) { if (bestMask & (1 << d)) { cand.push(d); } }
+      if (randomize) { shuffle(cand); }
+      var r = Math.floor(best / 9), c = best % 9, bx = BOX[best];
+      for (k = 0; k < cand.length; k++) {
+        var bb = 1 << cand[k];
+        g[best] = cand[k]; R[r] |= bb; C[c] |= bb; B[bx] |= bb;
+        if (rec()) { return true; }
+        R[r] &= ~bb; C[c] &= ~bb; B[bx] &= ~bb;
+      }
+      g[best] = 0;
+      return false;
+    }
+    rec();
+    return count;
+  }
+  function generate(level) {
+    var sol = [], i; for (i = 0; i < 81; i++) { sol.push(0); }
+    solve(sol, 1, true);
+    var puz = sol.slice(), order = [], left = 81, tmp;
+    for (i = 0; i < 81; i++) { order.push(i); }
+    shuffle(order);
+    for (i = 0; i < 81 && left > GIVENS[level]; i++) {
+      var k = order[i], keep = puz[k];
+      puz[k] = 0; tmp = puz.slice();
+      if (solve(tmp, 2, false) !== 1) { puz[k] = keep; } else { left--; }
+    }
+    return { p: puz, s: sol };
+  }
+
+  /* ---------- Spiel ---------- */
+  function newGame() {
+    $("#sMsg").textContent = "Erzeuge Rätsel …";
+    setTimeout(function () {
+      var g = generate(lvl), n = [], i;
+      for (i = 0; i < 81; i++) { n.push(0); }
+      st = { p: g.p, s: g.s, v: g.p.slice(), n: n, lvl: lvl, t: 0, err: 0, done: false };
+      sel = -1; save(); build(); render(); $("#sMsg").textContent = ""; startClock();
+    }, 30);
+  }
+  function save() { store.set("sudoku", st); }
+  function build() {
+    var h = "", r, c, W = Math.min($("#sBoard").parentNode.clientWidth - 32, 440), cs = Math.floor((W - 6) / 9);
+    for (r = 0; r < 9; r++) {
+      h += "<tr>";
+      for (c = 0; c < 9; c++) {
+        h += '<td data-i="' + (r * 9 + c) + '" class="' + (c % 3 === 2 && c < 8 ? "b3 " : "") + (r % 3 === 2 && r < 8 ? "r3" : "") +
+          '" style="width:' + cs + "px;height:" + cs + "px;font-size:" + Math.round(cs * 0.58) + 'px"></td>';
+      }
+      h += "</tr>";
+    }
+    $("#sg").innerHTML = h;
+    $("#sg").setAttribute("data-cs", cs);
+  }
+  function render() {
+    var tds = $$("#sg td"), cs = +$("#sg").getAttribute("data-cs"), i, v, sv = sel >= 0 ? st.v[sel] : 0, open = 0;
+    for (i = 0; i < 81; i++) {
+      v = st.v[i]; if (!v) { open++; }
+      var cls = (i % 9 % 3 === 2 && i % 9 < 8 ? "b3 " : "") + (Math.floor(i / 9) % 3 === 2 && i < 72 ? "r3 " : "");
+      if (st.p[i]) { cls += "g "; }
+      if (i === sel) { cls += "sel "; }
+      else if (sel >= 0 && (sv ? v === sv : (Math.floor(i / 9) === Math.floor(sel / 9) || i % 9 === sel % 9 || BOX[i] === BOX[sel]))) { cls += "same "; }
+      if (v && showErr && !st.p[i] && v !== st.s[i]) { cls += "bad"; }
+      tds[i].className = cls;
+      if (v) { tds[i].innerHTML = v; }
+      else if (st.n[i]) {
+        var h = '<div class="nt">', d;
+        for (d = 1; d <= 9; d++) { h += '<i style="font-size:' + Math.max(8, Math.round(cs * 0.26)) + "px;line-height:" + Math.floor((cs - 2) / 3) + 'px">' + (st.n[i] & (1 << d) ? d : "&nbsp;") + "</i>"; }
+        tds[i].innerHTML = h + "</div>";
+      } else { tds[i].innerHTML = ""; }
+    }
+    $("#sLeft").textContent = open; $("#sErr").textContent = st.err;
+    $("#sTime").textContent = fmtDur(st.t * 1000);
+    var bs = $$("#sLvl button");
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-l") === lvl ? "true" : "false"); }
+    $("#sShowErr").setAttribute("aria-pressed", showErr ? "true" : "false");
+    $("#sNotes").textContent = "Notizen: " + (notesMode ? "an" : "aus"); $("#sNotes").className = notesMode ? "ac" : "tonal";
+  }
+  function startClock() {
+    clearInterval(tmr);
+    tmr = setInterval(function () {
+      if (!st || st.done || document.hidden || document.msHidden) { return; }
+      st.t++; $("#sTime").textContent = fmtDur(st.t * 1000);
+      if (st.t % 10 === 0) { save(); }
+    }, 1000);
+  }
+  function input(d) {
+    if (!st || st.done || sel < 0 || st.p[sel]) { return; }
+    if (d === 0) { st.v[sel] = 0; st.n[sel] = 0; }
+    else if (notesMode) { if (!st.v[sel]) { st.n[sel] ^= (1 << d); } }
+    else {
+      st.v[sel] = st.v[sel] === d ? 0 : d;
+      if (st.v[sel] && st.v[sel] !== st.s[sel]) { st.err++; }
+      if (st.v[sel]) { clearNotes(sel, d); }
+    }
+    check(); save(); render();
+  }
+  function clearNotes(i, d) {
+    for (var k = 0; k < 81; k++) {
+      if (Math.floor(k / 9) === Math.floor(i / 9) || k % 9 === i % 9 || BOX[k] === BOX[i]) { st.n[k] &= ~(1 << d); }
+    }
+  }
+  function check() {
+    for (var i = 0; i < 81; i++) { if (st.v[i] !== st.s[i]) { return; } }
+    st.done = true; sel = -1;
+    var bk = store.get("sudoku.best", {}), rec = !bk[st.lvl] || st.t < bk[st.lvl];
+    if (rec) { bk[st.lvl] = st.t; store.set("sudoku.best", bk); }
+    $("#sMsg").textContent = "Gelöst in " + fmtDur(st.t * 1000) + (rec ? " – neue Bestzeit!" : "");
+  }
+
+  var ph = "";
+  for (var d = 1; d <= 9; d++) { ph += '<button data-d="' + d + '">' + d + "</button>"; }
+  $("#sPad2").innerHTML = ph + '<button data-d="0" class="tonal" aria-label="Löschen">⌫</button>';
+  var pbs = $$("#sPad2 button");
+  for (var j = 0; j < pbs.length; j++) { (function (b) { onPress(b, function () { input(parseInt(b.getAttribute("data-d"), 10)); }); })(pbs[j]); }
+  $("#sg").onclick = function (e) {
+    var td = closest(e.target, "td"); if (!td || !st || st.done) { return; }
+    sel = parseInt(td.getAttribute("data-i"), 10); render();
+  };
+  document.addEventListener("keydown", function (e) {
+    var k = e.keyCode;
+    if (k >= 49 && k <= 57) { input(k - 48); } else if (k >= 97 && k <= 105) { input(k - 96); }
+    else if (k === 8 || k === 46 || k === 48) { e.preventDefault(); input(0); }
+    else if (k >= 37 && k <= 40 && sel >= 0) {
+      e.preventDefault();
+      sel = k === 37 ? (sel % 9 ? sel - 1 : sel) : k === 39 ? (sel % 9 < 8 ? sel + 1 : sel) : k === 38 ? (sel >= 9 ? sel - 9 : sel) : (sel < 72 ? sel + 9 : sel);
+      render();
+    }
+  }, false);
+  $("#sNotes").onclick = function () { notesMode = !notesMode; render(); };
+  $("#sHint").onclick = function () {
+    if (!st || st.done) { return; }
+    if (sel < 0 || st.p[sel] || st.v[sel] === st.s[sel]) {
+      var free = []; for (var i = 0; i < 81; i++) { if (st.v[i] !== st.s[i]) { free.push(i); } }
+      if (!free.length) { return; }
+      sel = free[rnd(free.length)];
+    }
+    st.v[sel] = st.s[sel]; clearNotes(sel, st.s[sel]); check(); save(); render();
+  };
+  $("#sNew").onclick = function () { if (!st || st.done || confirm("Aktuelles Rätsel verwerfen?")) { newGame(); } };
+  $("#sLvl").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    lvl = parseInt(b.getAttribute("data-l"), 10); store.set("sudoku.lvl", lvl);
+    if (!st || st.done || confirm("Neues Rätsel mit diesem Schwierigkeitsgrad starten?")) { newGame(); } else { render(); }
+  };
+  $("#sShowErr").onclick = function () { showErr = !showErr; store.set("sudoku.err", showErr); render(); };
+  window.onresize = function () { if (st) { build(); render(); } };
+  if (st && st.p && st.p.length === 81) {
+    lvl = st.lvl; build(); render(); startClock();
+    if (st.done) { $("#sMsg").textContent = "Gelöst – starte ein neues Rätsel."; }
+  } else { newGame(); }
+})();
+</script>
+</body>
+</html>

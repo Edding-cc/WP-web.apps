@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Passwortgenerator · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.pw { font-family: Consolas, "Courier New", monospace; font-size: 17px; word-break: break-all; }
+.meter { height: 8px; border-radius: 4px; margin: 8px 0 4px; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 4px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Passwortgenerator</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="pMode" style="margin-bottom:12px"><button data-m="chars">Passwort</button><button data-m="pin">PIN</button><button data-m="check">Prüfen</button></div>
+<div id="pGen">
+<div class="card">
+<label class="fld" for="pLen">Länge: <b id="pLenV"></b> Zeichen</label><input type="range" id="pLen" min="4" max="64">
+<div id="pSets">
+<div class="switch"><span>Großbuchstaben A–Z</span><button class="tg" data-k="up" aria-label="Großbuchstaben"></button></div>
+<div class="switch"><span>Kleinbuchstaben a–z</span><button class="tg" data-k="lo" aria-label="Kleinbuchstaben"></button></div>
+<div class="switch"><span>Ziffern 0–9</span><button class="tg" data-k="di" aria-label="Ziffern"></button></div>
+<div class="switch"><span>Sonderzeichen !#$%…</span><button class="tg" data-k="sy" aria-label="Sonderzeichen"></button></div>
+<div class="switch"><span>Verwechselbare Zeichen meiden (I l 1 O 0 …)</span><button class="tg" data-k="amb" aria-label="Verwechselbare meiden"></button></div>
+</div>
+<div class="meter bg-sf2"><i id="pBar"></i></div><div class="muted" style="font-size:13px" id="pEnt"></div>
+</div>
+<div class="ctl c2"><button id="pGo" class="ac">Erzeugen</button><button id="pCp" class="tonal">Erstes kopieren</button></div>
+<div class="card" id="pOut"></div>
+</div>
+<div id="pChk" hidden>
+<div class="card">
+<label class="fld" for="pIn">Passwort zum Prüfen</label>
+<div class="flex"><input type="password" id="pIn" class="grow mono" autocomplete="off"><button class="btn tonal" id="pShow">Zeigen</button></div>
+<div class="meter bg-sf2"><i id="cBar"></i></div><div id="cOut" style="font-size:14px"></div>
+</div>
+<p class="hint">Die Prüfung läuft nur auf deinem Gerät, es wird nichts gesendet. Sie ist eine grobe Schätzung nach Länge und Zeichenarten und erkennt keine Wörterbuch- oder geleakten Passwörter.</p>
+</div>
+<p class="muted" style="font-size:13px" id="pSrc"></p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var SETS = { up: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", lo: "abcdefghijklmnopqrstuvwxyz", di: "0123456789", sy: "!#$%&*+-=?@^_~.,:;()[]{}<>/" };
+  var AMB = /[Il1O0o|`'"]/g;
+  var cfg = assign({ len: 16, up: true, lo: true, di: true, sy: true, amb: false, mode: "chars", pinLen: 6 }, store.get("pw", {}));
+  $("#pSrc").textContent = secureRandom ? "Zufall: crypto.getRandomValues (im IE11: msCrypto). Passwörter werden nicht gespeichert." : "Achtung: Dieser Browser bietet keinen kryptografischen Zufall (crypto/msCrypto). Erzeugte Passwörter sind nicht sicher.";
+
+  function pools() {
+    var p = [], k;
+    if (cfg.mode === "pin") { return ["0123456789"]; }
+    for (k in SETS) { if (cfg[k]) { p.push(cfg.amb ? SETS[k].replace(AMB, "") : SETS[k]); } }
+    return p;
+  }
+  function len() { return cfg.mode === "pin" ? cfg.pinLen : cfg.len; }
+  function entropy() { var all = pools().join(""); return all ? len() * Math.log(all.length) / Math.LN2 : 0; }
+  function rating(bits) {
+    return bits < 40 ? ["schwach", 0.25, "err"] : bits < 60 ? ["mittel", 0.5, "mu"] : bits < 80 ? ["stark", 0.75, "ok"] : ["sehr stark", 1, "ok"];
+  }
+  function bar(el, bits) {
+    var r = rating(bits), t = getTheme();
+    el.style.width = Math.max(4, Math.min(100, bits / 100 * 100)) + "%";
+    el.style.background = r[2] === "err" ? t.err : r[2] === "ok" ? t.ok : t.ac;
+    return r[0];
+  }
+  function gen() {
+    var p = pools(), all = p.join(""), n = len(), out, i, ok, tries = 0;
+    if (!all) { return ""; }
+    do {
+      out = ""; for (i = 0; i < n; i++) { out += all.charAt(rnd(all.length)); }
+      ok = true;
+      if (n >= p.length) { for (i = 0; i < p.length; i++) { if (!new RegExp("[" + p[i].replace(/[\]\\^\-\[]/g, "\\$&") + "]").test(out)) { ok = false; } } }
+    } while (!ok && ++tries < 200);
+    return out;
+  }
+  function run() {
+    var h = "", i, pw;
+    if (!pools().join("")) { $("#pOut").innerHTML = '<p class="err" style="margin:0">Mindestens eine Zeichenart wählen.</p>'; return; }
+    for (i = 0; i < 5; i++) {
+      pw = gen();
+      h += '<div class="list-item" style="align-items:center"><div class="grow pw">' + esc(pw) + '</div><button class="btn tonal" data-pw="' + esc(pw) + '">Kopieren</button></div>';
+    }
+    $("#pOut").innerHTML = h;
+  }
+  function ui() {
+    var bits = entropy(), sets = $$("#pSets .tg"), i;
+    $("#pLen").min = cfg.mode === "pin" ? 4 : 4; $("#pLen").max = cfg.mode === "pin" ? 12 : 64;
+    $("#pLen").value = len(); $("#pLenV").textContent = len();
+    $("#pSets").hidden = cfg.mode === "pin";
+    for (i = 0; i < sets.length; i++) { sets[i].setAttribute("aria-pressed", cfg[sets[i].getAttribute("data-k")] ? "true" : "false"); }
+    $("#pEnt").textContent = "ca. " + Math.round(bits) + " Bit Entropie – " + bar($("#pBar"), bits) + (cfg.mode === "pin" ? " (PINs schützen nur mit Fehlversuchssperre)" : "");
+  }
+  function save() { store.set("pw", { len: cfg.len, up: cfg.up, lo: cfg.lo, di: cfg.di, sy: cfg.sy, amb: cfg.amb, mode: cfg.mode, pinLen: cfg.pinLen }); }
+  $("#pLen").oninput = $("#pLen").onchange = function () {
+    if (cfg.mode === "pin") { cfg.pinLen = +this.value; } else { cfg.len = +this.value; }
+    save(); ui();
+  };
+  $("#pSets").onclick = function (e) { var b = closest(e.target, ".tg"); if (b) { var k = b.getAttribute("data-k"); cfg[k] = !cfg[k]; save(); ui(); run(); } };
+  onPress($("#pGo"), run);
+  $("#pCp").onclick = function () { var b = $("#pOut [data-pw]"); if (b) { copy(b.getAttribute("data-pw")); } };
+  $("#pOut").onclick = function (e) { var b = closest(e.target, "[data-pw]"); if (b) { copy(b.getAttribute("data-pw")); } };
+
+  function check() {
+    var v = $("#pIn").value, pool = 0, notes = [], bits;
+    if (/[a-z]/.test(v)) { pool += 26; } if (/[A-Z]/.test(v)) { pool += 26; } if (/\d/.test(v)) { pool += 10; }
+    if (/[^a-zA-Z\d]/.test(v)) { pool += 33; }
+    bits = v ? v.length * Math.log(pool) / Math.LN2 : 0;
+    if (/(.)\1\1/.test(v)) { bits *= 0.8; notes.push("Wiederholte Zeichen (z. B. „aaa“)"); }
+    if (/0123|1234|2345|3456|4567|5678|6789|abcd|qwert|asdf|passw|hallo|admin/i.test(v)) { bits *= 0.6; notes.push("Bekannte Folge oder häufiges Wort"); }
+    if (v && v.length < 12) { notes.push("Kürzer als 12 Zeichen"); }
+    var r = bar($("#cBar"), bits);
+    $("#cOut").innerHTML = v ? "<b>" + r + "</b> · " + v.length + " Zeichen · ca. " + Math.round(bits) + " Bit" + (notes.length ? '<ul class="nope" style="margin-top:6px"><li>' + notes.join("</li><li>") + "</li></ul>" : "") : '<span class="muted">Passwort eingeben</span>';
+  }
+  $("#pIn").oninput = check;
+  $("#pShow").onclick = function () { var i = $("#pIn"); i.type = i.type === "password" ? "text" : "password"; this.textContent = i.type === "password" ? "Zeigen" : "Verbergen"; };
+
+  function setMode(m) {
+    cfg.mode = m; if (m !== "check") { save(); }
+    $("#pGen").hidden = m === "check"; $("#pChk").hidden = m !== "check";
+    var bs = $$("#pMode button"); for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-m") === m ? "true" : "false"); }
+    if (m !== "check") { ui(); run(); } else { check(); }
+  }
+  $("#pMode").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setMode(b.getAttribute("data-m")); } };
+  setMode(cfg.mode === "check" ? "chars" : cfg.mode);
+})();
+</script>
+</body>
+</html>

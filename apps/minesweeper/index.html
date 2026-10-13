@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Minesweeper · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#ms { font-size: 0; line-height: 0; -ms-touch-action: manipulation; touch-action: manipulation; }
+#ms .c { display: inline-block; vertical-align: top; text-align: center; font-weight: 700; font-family: Consolas, "Courier New", monospace; cursor: pointer; border-radius: 3px; }
+#mMode, #mNew { font-size: 15px; }
+#ms .c svg { width: 62%; height: 62%; vertical-align: middle; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Minesweeper</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="lvl"><button data-l="0">Leicht 9×9</button><button data-l="1">Mittel 10×14</button><button data-l="2">Schwer 12×18</button></div>
+<div class="stats"><div><b id="mLeft">0</b><span>Minen übrig</span></div><div><b id="mTime">0</b><span>Sekunden</span></div><div><b id="mBest">–</b><span>Bestzeit</span></div></div>
+<div class="board" id="ms"></div>
+<p class="center" id="mMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c2"><button id="mMode" class="tonal">Modus: Aufdecken</button><button id="mNew" class="ac">Neues Spiel</button></div>
+<p class="muted" style="font-size:14px">Antippen deckt auf, im Flaggenmodus wird markiert. Lange drücken setzt immer eine Flagge. Tippst du auf eine Zahl, deren Flaggen vollständig sind, werden die übrigen Nachbarn aufgedeckt. Der erste Zug ist immer sicher.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var LV = [{ w: 9, h: 9, m: 10 }, { w: 10, h: 14, m: 22 }, { w: 12, h: 18, m: 40 }];
+  var FLAG = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h1.6v14H4z"/><path d="M5.6 1.5L13 4.8 5.6 8.2z"/></svg>';
+  var MINE = '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="4.6"/><path d="M7.3 0.8h1.4v14.4H7.3zM0.8 7.3h14.4v1.4H0.8z"/></svg>';
+  var lv = store.get("ms.lv", 0), cells = [], els = [], started, over, opened, flags, t0, timer, flagMode = false, best = store.get("ms.best", {});
+  var board = $("#ms");
+
+  themeCss(function (t) {
+    var nc = t.dark ? ["#7fb2ff", "#7bc47f", "#f08a80", "#c9a7ff", "#ffb070", "#5fd3d3", "#e6e8eb", "#9aa1aa"]
+                    : ["#1B6EF3", "#2E7D32", "#C0362C", "#4527A0", "#8C2F00", "#00796B", "#1a1c1f", "#5d636b"], css = "";
+    for (var i = 0; i < 8; i++) { css += "#ms .n" + (i + 1) + "{color:" + nc[i] + "}"; }
+    return css + "#ms .c{background:" + mix(t.ac, t.sf2, t.dark ? 0.45 : 0.4) + ";border:1px solid " + t.bg + ";color:" + t.tx + "}#ms .c.o{background:" + (t.dark ? t.sf : t.sf2) + "}#ms .c.x{background:" + t.err + ";color:#fff}#ms .c.f{color:" + t.err + "}";
+  });
+
+  function nb(i) {
+    var L = LV[lv], x = i % L.w, y = Math.floor(i / L.w), out = [], dx, dy;
+    for (dy = -1; dy <= 1; dy++) { for (dx = -1; dx <= 1; dx++) {
+      if ((dx || dy) && x + dx >= 0 && x + dx < L.w && y + dy >= 0 && y + dy < L.h) { out.push((y + dy) * L.w + x + dx); }
+    } }
+    return out;
+  }
+  function size() {
+    var L = LV[lv], avail = board.parentNode.clientWidth - 32;
+    return Math.max(18, Math.min(40, Math.floor(avail / L.w)));
+  }
+  function layout() {
+    var s = size(), L = LV[lv];
+    board.style.width = s * L.w + "px";
+    for (var i = 0; i < els.length; i++) { var st = els[i].style; st.width = st.height = s + "px"; st.lineHeight = (s - 2) + "px"; st.fontSize = Math.round(s * 0.55) + "px"; }
+  }
+  function newGame() {
+    var L = LV[lv], n = L.w * L.h, h = "", i;
+    clearInterval(timer); started = over = false; opened = flags = 0; cells = [];
+    for (i = 0; i < n; i++) { cells.push({ m: false, n: 0, o: false, f: false }); h += '<div class="c" data-i="' + i + '"></div>'; }
+    board.innerHTML = h; els = $$("#ms .c"); layout();
+    $("#mTime").textContent = "0"; $("#mMsg").textContent = "";
+    $("#mBest").textContent = best[lv] ? best[lv] + " s" : "–";
+    var bs = $$("#lvl button");
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-l") === lv ? "true" : "false"); }
+    counter();
+  }
+  function counter() { $("#mLeft").textContent = LV[lv].m - flags; }
+  function plant(safe) {
+    var L = LV[lv], bad = nb(safe).concat([safe]), pool = [], i, j;
+    for (i = 0; i < cells.length; i++) { if (bad.indexOf(i) < 0) { pool.push(i); } }
+    shuffle(pool);
+    for (i = 0; i < L.m; i++) { cells[pool[i]].m = true; }
+    for (i = 0; i < cells.length; i++) { var a = nb(i), c = 0; for (j = 0; j < a.length; j++) { if (cells[a[j]].m) { c++; } } cells[i].n = c; }
+    started = true; t0 = Date.now();
+    timer = setInterval(function () { $("#mTime").textContent = Math.floor((Date.now() - t0) / 1000); }, 500);
+  }
+  function draw(i) {
+    var c = cells[i], e = els[i];
+    if (c.o) { e.className = "c o" + (c.m ? " x" : c.n ? " n" + c.n : ""); e.innerHTML = c.m ? MINE : c.n ? c.n : ""; }
+    else { e.className = "c" + (c.f ? " f" : ""); e.innerHTML = c.f ? FLAG : ""; }
+  }
+  function reveal(i) {
+    var stack = [i], k, a, j;
+    while (stack.length) {
+      k = stack.pop();
+      if (cells[k].o || cells[k].f) { continue; }
+      cells[k].o = true; opened++; draw(k);
+      if (cells[k].m) { return lose(k); }
+      if (cells[k].n === 0) { a = nb(k); for (j = 0; j < a.length; j++) { if (!cells[a[j]].o) { stack.push(a[j]); } } }
+    }
+    if (opened === cells.length - LV[lv].m) { win(); }
+  }
+  function chord(i) {
+    var a = nb(i), f = 0, j;
+    for (j = 0; j < a.length; j++) { if (cells[a[j]].f) { f++; } }
+    if (f !== cells[i].n) { return; }
+    for (j = 0; j < a.length && !over; j++) { if (!cells[a[j]].o && !cells[a[j]].f) { reveal(a[j]); } }
+  }
+  function toggleFlag(i) {
+    var c = cells[i]; if (c.o) { return; }
+    c.f = !c.f; flags += c.f ? 1 : -1; draw(i); counter();
+  }
+  function lose(k) {
+    over = true; clearInterval(timer);
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i];
+      if (c.m && !c.f) { c.o = true; draw(i); }
+      else if (!c.m && c.f) { els[i].innerHTML = "✕"; }
+    }
+    els[k].className = "c o x";
+    $("#mMsg").textContent = "Mine getroffen. Neues Spiel?";
+  }
+  function win() {
+    over = true; clearInterval(timer);
+    var s = Math.max(1, Math.round((Date.now() - t0) / 1000)), rec = !best[lv] || s < best[lv];
+    for (var i = 0; i < cells.length; i++) { if (cells[i].m && !cells[i].f) { cells[i].f = true; draw(i); } }
+    flags = LV[lv].m; counter();
+    if (rec) { best[lv] = s; store.set("ms.best", best); $("#mBest").textContent = s + " s"; }
+    $("#mTime").textContent = s;
+    $("#mMsg").textContent = "Gewonnen in " + s + " s" + (rec ? " – neue Bestzeit!" : "");
+  }
+  function tap(i, forceFlag) {
+    if (over) { return; }
+    var c = cells[i];
+    if (c.o) { if (c.n) { chord(i); } return; }
+    if (flagMode || forceFlag) { toggleFlag(i); return; }
+    if (c.f) { return; }
+    if (!started) { plant(i); }
+    reveal(i);
+  }
+
+  /* Langes Drücken = Flagge */
+  var lpTimer = 0, lpFired = false, lpX = 0, lpY = 0;
+  function idxOf(e) { var t = closest(e.target, "[data-i]"); return t ? parseInt(t.getAttribute("data-i"), 10) : -1; }
+  function down(e, x, y) {
+    var i = idxOf(e); lpFired = false; clearTimeout(lpTimer);
+    if (i < 0 || over) { return; }
+    lpX = x; lpY = y;
+    lpTimer = setTimeout(function () { lpFired = true; if (!cells[i].o) { toggleFlag(i); } }, 450);
+  }
+  function move(x, y) { if (Math.abs(x - lpX) > 10 || Math.abs(y - lpY) > 10) { clearTimeout(lpTimer); } }
+  function up() { clearTimeout(lpTimer); }
+  if (window.PointerEvent || window.MSPointerEvent) {
+    var P = window.PointerEvent ? ["pointerdown", "pointermove", "pointerup", "pointercancel"] : ["MSPointerDown", "MSPointerMove", "MSPointerUp", "MSPointerCancel"];
+    board.addEventListener(P[0], function (e) { down(e, e.clientX, e.clientY); }, false);
+    board.addEventListener(P[1], function (e) { move(e.clientX, e.clientY); }, false);
+    board.addEventListener(P[2], up, false); board.addEventListener(P[3], up, false);
+  } else {
+    board.addEventListener("touchstart", function (e) { down(e, e.touches[0].clientX, e.touches[0].clientY); }, false);
+    board.addEventListener("touchmove", function (e) { move(e.touches[0].clientX, e.touches[0].clientY); }, false);
+    board.addEventListener("touchend", up, false);
+  }
+  board.oncontextmenu = function (e) { e.preventDefault(); var i = idxOf(e); if (i >= 0 && !lpFired && !over) { toggleFlag(i); } lpFired = true; return false; };
+  board.onclick = function (e) {
+    var i = idxOf(e);
+    if (lpFired) { lpFired = false; return; }
+    if (i >= 0) { tap(i, false); }
+  };
+
+  $("#mMode").onclick = function () {
+    flagMode = !flagMode;
+    this.textContent = flagMode ? "Modus: Flagge" : "Modus: Aufdecken";
+    this.className = flagMode ? "ac" : "tonal";
+  };
+  $("#mNew").onclick = newGame;
+  $("#lvl").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    lv = parseInt(b.getAttribute("data-l"), 10); store.set("ms.lv", lv); newGame();
+  };
+  window.onresize = layout;
+  if (!LV[lv]) { lv = 0; }
+  newGame();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Datum & Fristen · Systemtools</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.dt { display: -ms-flexbox; display: flex; }
+.dt input { -ms-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; font-family: Consolas, "Courier New", monospace; }
+.dt button { margin-left: 8px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Datum & Fristen</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="dMode" style="margin-bottom:12px"><button data-m="diff">Abstand</button><button data-m="add">Rechnen</button><button data-m="info">Info</button><button data-m="frist">Fristen</button></div>
+<div id="pdiff" class="card">
+<label class="fld">Von (TT.MM.JJJJ)</label><div class="dt"><input type="tel" id="d1"><button class="btn tonal" data-today="d1">Heute</button></div>
+<label class="fld">Bis (TT.MM.JJJJ)</label><div class="dt"><input type="tel" id="d2"><button class="btn tonal" data-today="d2">Heute</button></div>
+<div class="result" id="rDiff"></div>
+</div>
+<div id="padd" class="card" hidden>
+<label class="fld">Ausgangsdatum</label><div class="dt"><input type="tel" id="a1"><button class="btn tonal" data-today="a1">Heute</button></div>
+<div class="g2"><div><label class="fld" for="aN">Anzahl (− für zurück)</label><input type="number" id="aN" value="14"></div><div><label class="fld" for="aU">Einheit</label><select id="aU"><option value="d">Tage</option><option value="w">Wochen</option><option value="m">Monate</option><option value="y">Jahre</option><option value="wd">Werktage (Mo–Fr)</option></select></div></div>
+<div class="result" id="rAdd"></div>
+</div>
+<div id="pinfo" class="card" hidden>
+<label class="fld">Datum</label><div class="dt"><input type="tel" id="i1"><button class="btn tonal" data-today="i1">Heute</button></div>
+<div class="result" id="rInfo"></div>
+</div>
+<div id="pfrist" hidden>
+<div class="card">
+<label class="fld">Ereignis / Eingang (TT.MM.JJJJ)</label><div class="dt"><input type="tel" id="f1"><button class="btn tonal" data-today="f1">Jetzt</button></div>
+<label class="fld" for="fT">Uhrzeit (HH:MM)</label><input type="tel" id="fT" class="mono">
+<div class="result" id="rFrist"></div>
+</div>
+<p class="hint">Vereinfachte Berechnung nach Kalendertagen ohne Feiertage und ohne besondere Fristregeln (z. B. Fristende am Wochenende). Keine Rechtsberatung – maßgeblich ist der Gesetzestext.</p>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var WD = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var MO = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var DAY = 86400000;
+  var v = store.get("datum", {}), mode = v.mode || "diff";
+
+  function today() { var d = new Date(); return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear(); }
+  function parse(s) {
+    var m = /^\s*(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2}|\d{4})\s*$/.exec(s || "");
+    if (!m) { return null; }
+    var y = +m[3]; if (y < 100) { y += 2000; }
+    var d = new Date(y, +m[2] - 1, +m[1], 12);
+    return d.getDate() === +m[1] && d.getMonth() === +m[2] - 1 ? d : null;
+  }
+  function fmt(d) { return WD[d.getDay()].slice(0, 2) + ", " + pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear(); }
+  function fmtLong(d) { return WD[d.getDay()] + ", " + d.getDate() + ". " + MO[d.getMonth()] + " " + d.getFullYear(); }
+  function days(a, b) { return Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / DAY); }
+  function addMonths(d, n) {
+    var y = d.getFullYear(), m = d.getMonth() + n, day = d.getDate(), last;
+    y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    last = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(day, last), d.getHours(), d.getMinutes());
+  }
+  function isoWeek(d) {
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), dn = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - dn);
+    var y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return [Math.ceil(((t - y0) / DAY + 1) / 7), t.getUTCFullYear()];
+  }
+  function workdays(a, b) {
+    var s = a <= b ? a : b, e = a <= b ? b : a, n = 0, d = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 12);
+    while (d <= e) { if (d.getDay() % 6) { n++; } d.setDate(d.getDate() + 1); if (n > 400000) { break; } }
+    return n;
+  }
+  function ymd(a, b) {
+    if (a > b) { var t = a; a = b; b = t; }
+    var y = b.getFullYear() - a.getFullYear(), m = b.getMonth() - a.getMonth(), d = b.getDate() - a.getDate();
+    if (d < 0) { m--; d += new Date(b.getFullYear(), b.getMonth(), 0).getDate(); }
+    if (m < 0) { y--; m += 12; }
+    return y + " J, " + m + " M, " + d + " T";
+  }
+  function err(id, msg) { $(id).innerHTML = '<span class="muted">' + msg + "</span>"; }
+
+  function calcDiff() {
+    var a = parse($("#d1").value), b = parse($("#d2").value);
+    if (!a || !b) { return err("#rDiff", "Zwei gültige Daten eingeben, z. B. 24.12.2026"); }
+    var n = days(a, b), an = Math.abs(n);
+    $("#rDiff").innerHTML = '<div class="big" style="font-size:30px">' + nf(n, 0) + " Tage</div>" +
+      kv([["Wochen", Math.floor(an / 7) + " W " + an % 7 + " T"], ["Jahre/Monate/Tage", ymd(a, b)], ["Werktage Mo–Fr (inkl. beider)", nf(workdays(a, b), 0)], ["Inklusive Endtag", nf(an + 1, 0) + " Tage"], ["Stunden", nf(an * 24, 0)]]);
+  }
+  function calcAdd() {
+    var a = parse($("#a1").value), n = Math.round(parseNum($("#aN").value)), u = $("#aU").value, r, i, step;
+    if (!a || isNaN(n)) { return err("#rAdd", "Datum und Anzahl eingeben"); }
+    if (Math.abs(n) > 100000) { return err("#rAdd", "Anzahl zu groß"); }
+    if (u === "d") { r = new Date(a.getTime()); r.setDate(r.getDate() + n); }
+    else if (u === "w") { r = new Date(a.getTime()); r.setDate(r.getDate() + n * 7); }
+    else if (u === "m") { r = addMonths(a, n); }
+    else if (u === "y") { r = addMonths(a, n * 12); }
+    else { r = new Date(a.getTime()); step = n < 0 ? -1 : 1; for (i = 0; i < Math.abs(n);) { r.setDate(r.getDate() + step); if (r.getDay() % 6) { i++; } } }
+    $("#rAdd").innerHTML = '<div class="big" style="font-size:26px">' + fmtLong(r) + "</div>" + kv([["Kalenderwoche", "KW " + isoWeek(r)[0]], ["Abstand", nf(days(a, r), 0) + " Tage"]]);
+  }
+  function calcInfo() {
+    var d = parse($("#i1").value);
+    if (!d) { return err("#rInfo", "Gültiges Datum eingeben"); }
+    var y = d.getFullYear(), leap = new Date(y, 1, 29).getMonth() === 1, w = isoWeek(d), doy = days(new Date(y, 0, 1, 12), d) + 1, len = leap ? 366 : 365;
+    $("#rInfo").innerHTML = '<div class="big" style="font-size:26px">' + fmtLong(d) + "</div>" + kv([
+      ["Kalenderwoche (ISO)", "KW " + w[0] + (w[1] !== y ? " (" + w[1] + ")" : "")], ["Tag im Jahr", doy + " von " + len], ["Verbleibende Tage", len - doy],
+      ["Quartal", "Q" + (Math.floor(d.getMonth() / 3) + 1)], ["Schaltjahr", leap ? "ja" : "nein"], ["Tage bis heute", nf(days(d, new Date()), 0)]]);
+  }
+  function calcFrist() {
+    var d = parse($("#f1").value), tm = /^\s*(\d{1,2})[:.](\d{2})\s*$/.exec($("#fT").value || "");
+    if (!d) { return err("#rFrist", "Datum eingeben"); }
+    if (tm && +tm[1] < 24 && +tm[2] < 60) { d.setHours(+tm[1], +tm[2], 0, 0); } else { d.setHours(0, 0, 0, 0); }
+    var h72 = new Date(d.getTime() + 72 * 3600000), m1 = addMonths(d, 1), m3 = addMonths(d, 3), w2 = new Date(d.getTime()); w2.setDate(w2.getDate() + 14);
+    function dt(x) { return fmt(x) + (tm ? ", " + pad(x.getHours()) + ":" + pad(x.getMinutes()) + " Uhr" : ""); }
+    $("#rFrist").innerHTML = kv([
+      ["+ 72 Stunden", dt(h72)],
+      ["+ 1 Monat", fmt(m1)],
+      ["+ 3 Monate (1 + 2 Verlängerung)", fmt(m3)],
+      ["+ 14 Tage", fmt(w2)]
+    ]) + '<p class="muted" style="font-size:13px;margin:8px 0 0">Beispiele DSGVO: Meldung einer Datenschutzverletzung möglichst binnen 72 Stunden nach Bekanntwerden (Art. 33 Abs. 1); Antwort auf Betroffenenanträge innerhalb eines Monats, verlängerbar um weitere zwei Monate (Art. 12 Abs. 3).</p>';
+  }
+  var CALC = { diff: calcDiff, add: calcAdd, info: calcInfo, frist: calcFrist };
+  var FIELDS = ["d1", "d2", "a1", "aN", "aU", "i1", "f1", "fT"];
+  function persist() { var o = { mode: mode }; for (var i = 0; i < FIELDS.length; i++) { o[FIELDS[i]] = $("#" + FIELDS[i]).value; } store.set("datum", o); }
+  function setMode(m) {
+    mode = CALC[m] ? m : "diff";
+    for (var k in CALC) { if (CALC.hasOwnProperty(k)) { $("#p" + k).hidden = k !== mode; } }
+    var bs = $$("#dMode button"); for (var i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-m") === mode ? "true" : "false"); }
+    CALC[mode](); persist();
+  }
+  for (var i = 0; i < FIELDS.length; i++) {
+    var el = $("#" + FIELDS[i]);
+    if (v[FIELDS[i]] != null) { el.value = v[FIELDS[i]]; }
+    else if (el.tagName === "INPUT" && FIELDS[i] !== "aN" && FIELDS[i] !== "fT") { el.value = today(); }
+    el.oninput = el.onchange = el.onkeyup = function () { CALC[mode](); persist(); };
+  }
+  if (!$("#fT").value) { var n0 = new Date(); $("#fT").value = pad(n0.getHours()) + ":" + pad(n0.getMinutes()); }
+  document.body.onclick = function (e) {
+    var b = closest(e.target, "[data-today]"); if (!b) { return; }
+    var id = b.getAttribute("data-today"); $("#" + id).value = today();
+    if (id === "f1") { var n = new Date(); $("#fT").value = pad(n.getHours()) + ":" + pad(n.getMinutes()); }
+    CALC[mode](); persist();
+  };
+  $("#dMode").onclick = function (e) { var b = closest(e.target, "button"); if (b) { setMode(b.getAttribute("data-m")); } };
+  setMode(mode);
+})();
+</script>
+</body>
+</html>

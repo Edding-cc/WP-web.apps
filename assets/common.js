@@ -123,6 +123,7 @@
   /* ---------- Theme (Hell/Dunkel/Akzent) ---------- */
   var settings = assign({ theme: "dark", oled: false, accent: "#1F3A5F" }, store.get("settings", {}));
   var T = {};
+  var extraCss = [];
   settings.theme = settings.theme === "light" ? "light" : "dark";
   function isDark() { return settings.theme === "dark"; }
   function applyTheme() {
@@ -147,7 +148,7 @@
       ".iconbtn{color:" + t.tx + "}.iconbtn:active{background:" + t.sf2 + "}" +
       ".sub,.muted,.tool .d,h2,.kv dt,.badge,label.fld,.list-item small,.nope li{color:" + t.mu + "}" +
       ".nope b{color:" + t.tx + "}" +
-      ".search,input[type=text],input[type=url],input[type=search],select,textarea{background:" + t.sf + ";border:1px solid " + t.bd + ";color:" + t.tx + "}" +
+      ".search,input[type=text],input[type=url],input[type=search],input[type=number],input[type=tel],input[type=password],select,textarea{background:" + t.sf + ";border:1px solid " + t.bd + ";color:" + t.tx + "}" +
       ".search:focus,input:focus,select:focus,textarea:focus{border-color:" + t.ac + "}" +
       ".tool{background:" + t.sf + ";border:1px solid " + t.bd + ";color:" + t.tx + "}.tool:active{border-color:" + t.ac + "}" +
       ".tool .ic{background:" + t.acs + ";color:" + t.tx + "}" +
@@ -168,13 +169,148 @@
       "canvas.chart{background:" + t.sf2 + "}" +
       "#iconOv{background:" + settings.accent + ";color:" + (luminance(settings.accent) > 0.4 ? "#111111" : "#ffffff") + "}" +
       ".pos-grid button{border:1px solid " + t.bd + ";background:" + t.sf + ";color:" + t.tx + "}" +
-      ".pos-grid button[aria-pressed=\"true\"]{background:" + t.ac + ";color:" + t.onac + ";border-color:" + t.ac + "}";
+      ".pos-grid button[aria-pressed=\"true\"]{background:" + t.ac + ";color:" + t.onac + ";border-color:" + t.ac + "}" +
+      ".stats>div,.result{background:" + t.sf2 + "}.stats span{color:" + t.mu + "}" +
+      ".ctl button{background:" + t.sf2 + ";color:" + t.tx + "}.ctl button.ac{background:" + t.ac + ";color:" + t.onac + "}.ctl button.tonal{background:" + t.acs + "}" +
+      ".ctl button:active,.ctl button.down{background:" + t.acs + "}" +
+      ".chips button{border:1px solid " + t.bd + ";background:" + t.sf + ";color:" + t.tx + "}.chips button[aria-pressed=\"true\"]{background:" + t.acs + ";border-color:" + t.ac + "}" +
+      ".cb{border:2px solid " + t.mu + ";background:none;color:" + t.onac + "}.cb[aria-pressed=\"true\"]{background:" + t.ac + ";border-color:" + t.ac + "}" +
+      ".tbl td,.tbl th{border-top:1px solid " + t.bd + "}.tbl th{color:" + t.mu + "}" +
+      ".ok{color:" + t.ok + "}.bg-sf2{background:" + t.sf2 + "}.bg-acs{background:" + t.acs + "}" +
+      "body.alarm{background:" + t.ac + "}";
+    for (var xi = 0; xi < extraCss.length; xi++) { css += extraCss[xi](t); }
     var el = d.getElementById("themecss");
     if (!el) { el = d.createElement("style"); el.id = "themecss"; d.getElementsByTagName("head")[0].appendChild(el); }
     if (el.styleSheet) { el.styleSheet.cssText = css; } else { el.textContent = css; }
     var m = $('meta[name="theme-color"]'); if (m) { m.setAttribute("content", settings.accent); }
   }
   function saveSettings() { store.set("settings", settings); applyTheme(); }
+  /* Seiten können eigene Farbregeln ergänzen: themeCss(function (t) { return "..."; }) */
+  function themeCss(fn) { extraCss.push(fn); applyTheme(); }
+
+  /* ---------- Zufall: crypto.getRandomValues, im IE11 msCrypto ---------- */
+  var cryptoObj = w.crypto || w.msCrypto;
+  var secureRandom = !!(cryptoObj && cryptoObj.getRandomValues);
+  function randU32() {
+    if (secureRandom) {
+      try { var a = new Uint32Array(1); cryptoObj.getRandomValues(a); return a[0]; } catch (e) {}
+    }
+    return Math.floor(Math.random() * 4294967296);
+  }
+  /* gleichverteilte Ganzzahl 0 … n-1 (Ablehnungsverfahren gegen Modulo-Verzerrung) */
+  function rnd(n) {
+    var lim = 4294967296 - (4294967296 % n), x;
+    do { x = randU32(); } while (x >= lim);
+    return x % n;
+  }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) { var j = rnd(i + 1), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+
+  /* ---------- Touch: Pointer Events (IE11), MSPointer (IE10), Touch/Maus ---------- */
+  var PE = w.PointerEvent ? ["pointerdown", "pointerup", "pointercancel"] :
+    w.MSPointerEvent ? ["MSPointerDown", "MSPointerUp", "MSPointerCancel"] : null;
+  function on(el, ev, fn) { el.addEventListener(ev, fn, false); }
+  /* löst sofort beim Antippen aus; mit repeat (ms) wiederholt beim Halten */
+  function onPress(el, fn, repeat) {
+    var t1, t2;
+    function stop() { clearTimeout(t1); clearInterval(t2); }
+    function start(e) {
+      if (e.preventDefault) { e.preventDefault(); }
+      stop(); fn(e);
+      if (repeat) { t1 = setTimeout(function () { t2 = setInterval(fn, repeat); }, 280); }
+    }
+    el.style.msTouchAction = "none"; el.style.touchAction = "none";
+    if (PE) { on(el, PE[0], start); on(d, PE[1], stop); on(d, PE[2], stop); }
+    else { on(el, "touchstart", start); on(d, "touchend", stop); on(d, "touchcancel", stop); on(el, "mousedown", start); on(d, "mouseup", stop); }
+  }
+  /* Wischgeste: fn("left" | "right" | "up" | "down") */
+  function onSwipe(el, fn, minDist) {
+    var sx = 0, sy = 0, active = false;
+    minDist = minDist || 24;
+    function start(x, y) { sx = x; sy = y; active = true; }
+    function end(x, y) {
+      if (!active) { return; }
+      active = false;
+      var dx = x - sx, dy = y - sy, ax = Math.abs(dx), ay = Math.abs(dy);
+      if (Math.max(ax, ay) < minDist) { return; }
+      fn(ax > ay ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+    }
+    el.style.msTouchAction = "none"; el.style.touchAction = "none";
+    if (PE) {
+      on(el, PE[0], function (e) { start(e.clientX, e.clientY); });
+      on(d, PE[1], function (e) { end(e.clientX, e.clientY); });
+      on(d, PE[2], function () { active = false; });
+    } else {
+      on(el, "touchstart", function (e) { var p = e.touches[0]; start(p.clientX, p.clientY); });
+      on(el, "touchmove", function (e) { if (active) { e.preventDefault(); } });
+      on(d, "touchend", function (e) { var p = e.changedTouches[0]; end(p.clientX, p.clientY); });
+      on(el, "mousedown", function (e) { start(e.clientX, e.clientY); });
+      on(d, "mouseup", function (e) { end(e.clientX, e.clientY); });
+    }
+  }
+  /* Pfeiltasten und WASD: fn("left" | ...) – für Tastatur und Emulator */
+  function onArrows(fn) {
+    var K = { 37: "left", 38: "up", 39: "right", 40: "down", 65: "left", 87: "up", 68: "right", 83: "down" };
+    on(d, "keydown", function (e) {
+      var t = e.target && e.target.tagName;
+      if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") { return; }
+      if (K[e.keyCode]) { e.preventDefault(); fn(K[e.keyCode], e); }
+    });
+  }
+
+  /* ---------- Hilfen für Zahlen und Zeiten ---------- */
+  function pad(n, len) { n = String(n); while (n.length < (len || 2)) { n = "0" + n; } return n; }
+  /* ms → "1:02:03" bzw. "02:03", mit tenths ",4" */
+  function fmtDur(ms, tenths) {
+    if (ms < 0) { ms = 0; }
+    var s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+    var out = (h ? h + ":" + pad(m) : pad(m)) + ":" + pad(s % 60);
+    return tenths ? out + "," + Math.floor(ms % 1000 / 100) : out;
+  }
+  /* "1.234,5" oder "1234.5" → Zahl, sonst NaN */
+  function parseNum(v) {
+    v = String(v == null ? "" : v).replace(/[\s\u00a0']/g, "");
+    if (v.indexOf(",") >= 0) { v = v.replace(/\./g, "").replace(",", "."); }
+    return /^[+\-]?(\d+\.?\d*|\.\d+)(e[+\-]?\d+)?$/i.test(v) ? parseFloat(v) : NaN;
+  }
+  /* Zahl mit bis zu sig signifikanten Stellen, deutsch formatiert (sehr groß/klein: 1,23e-9) */
+  function fmtG(v, sig) {
+    v = Number(v);
+    if (!isFinite(v)) { return "–"; }
+    if (v === 0) { return "0"; }
+    var a = Math.abs(v);
+    if (a >= 1e15 || a < 1e-6) { return v.toExponential((sig || 10) - 1).replace(/\.?0+e/, "e").replace(".", ","); }
+    var str = String(Number(v.toPrecision(sig || 10)));
+    if (/e/i.test(str)) { str = Number(str).toFixed(12).replace(/0+$/, ""); }
+    var p = str.replace("-", "").split(".");
+    p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return (v < 0 ? "-" : "") + p[0] + (p[1] ? "," + p[1] : "");
+  }
+  /* Signal am Ende eines Timers: Vibration, Ton (wenn der Browser es kann), Blinken */
+  var audioCtx = null;
+  function beep(times) {
+    times = times || 3;
+    try { if (navigator.vibrate) { navigator.vibrate([300, 150, 300, 150, 300]); } } catch (e) {}
+    try {
+      var AC = w.AudioContext || w.webkitAudioContext;
+      if (AC) {
+        audioCtx = audioCtx || new AC();
+        for (var i = 0; i < times; i++) {
+          var o = audioCtx.createOscillator(), g = audioCtx.createGain(), t0 = audioCtx.currentTime + i * 0.45;
+          o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+          g.gain.setValueAtTime(0.25, t0); g.gain.setValueAtTime(0, t0 + 0.3);
+          o.start(t0); o.stop(t0 + 0.32);
+        }
+      }
+    } catch (e2) {}
+    var n = 0, b = d.body;
+    var iv = setInterval(function () {
+      b.className = n % 2 ? b.className.replace(/\s*alarm/g, "") : b.className + " alarm";
+      if (++n >= times * 2) { clearInterval(iv); b.className = b.className.replace(/\s*alarm/g, ""); }
+    }, 350);
+  }
 
   /* ---------- FPS-Messung und Overlay ---------- */
   var POS = ["Oben links", "Oben Mitte", "Oben rechts", "Mitte links", "Mitte", "Mitte rechts", "Unten links", "Unten Mitte", "Unten rechts"];
@@ -219,22 +355,52 @@
     }
   }
 
-  /* ---------- Werkzeugliste (für Verknüpfungen) ---------- */
+  /* ---------- Werkzeugliste (Startseite, Verknüpfungen) ---------- */
   var TOOLS = [
-    { id: "rechner", title: "Rechner" },
-    { id: "fps", title: "Bildrate (FPS)" },
-    { id: "geraeteinfo", title: "Geräteinfo" },
-    { id: "palette", title: "Farbe & Palette" },
-    { id: "verknuepfungen", title: "Verknüpfungen" }
+    { id: "rechner", dir: "tools", title: "Rechner" },
+    { id: "fps", dir: "tools", title: "Bildrate (FPS)" },
+    { id: "geraeteinfo", dir: "tools", title: "Geräteinfo" },
+    { id: "palette", dir: "tools", title: "Farbe & Palette" },
+    { id: "verknuepfungen", dir: "tools", title: "Verknüpfungen" },
+    { id: "minesweeper", dir: "apps", title: "Minesweeper" },
+    { id: "2048", dir: "apps", title: "2048" },
+    { id: "snake", dir: "apps", title: "Snake" },
+    { id: "tetris", dir: "apps", title: "Tetris" },
+    { id: "sudoku", dir: "apps", title: "Sudoku" },
+    { id: "memory", dir: "apps", title: "Memory" },
+    { id: "schiebepuzzle", dir: "apps", title: "Schiebepuzzle" },
+    { id: "tictactoe", dir: "apps", title: "Tic-Tac-Toe" },
+    { id: "notizen", dir: "apps", title: "Notizen" },
+    { id: "todo", dir: "apps", title: "To-do-Liste" },
+    { id: "stoppuhr", dir: "apps", title: "Stoppuhr" },
+    { id: "timer", dir: "apps", title: "Timer & Pomodoro" },
+    { id: "wuerfel", dir: "apps", title: "Würfel & Münze" },
+    { id: "passwort", dir: "apps", title: "Passwortgenerator" },
+    { id: "einheiten", dir: "apps", title: "Einheitenrechner" },
+    { id: "prozent", dir: "apps", title: "Prozentrechner" },
+    { id: "trinkgeld", dir: "apps", title: "Trinkgeldrechner" },
+    { id: "zaehler", dir: "apps", title: "Zähler" },
+    { id: "datum", dir: "apps", title: "Datum & Fristen" },
+    { id: "text", dir: "apps", title: "Textwerkzeuge" },
+    { id: "subnetz", dir: "apps", title: "Subnetzrechner" },
+    { id: "zahlensysteme", dir: "apps", title: "Zahlensysteme" },
+    { id: "ports", dir: "apps", title: "Ports" },
+    { id: "lernkarten", dir: "apps", title: "Lernkarten Netzwerk" },
+    { id: "befehle", dir: "apps", title: "Befehle" },
+    { id: "buchstabieren", dir: "apps", title: "Buchstabieren & Morse" }
   ];
+  function toolUrl(t) { return (w.ROOT || "") + (t.dir || "tools") + "/" + t.id + "/"; }
 
   w.$ = $; w.$$ = $$; w.closest = closest; w.esc = esc; w.assign = assign; w.store = store;
   w.toast = toast; w.copy = copy; w.nf = nf; w.kv = kv;
-  w.hexToRgb = hexToRgb; w.rgbToHex = rgbToHex; w.rgbToHsl = rgbToHsl; w.hslToHex = hslToHex;
+  w.hexToRgb = hexToRgb; w.rgbToHex = rgbToHex; w.mix = mix; w.rgbToHsl = rgbToHsl; w.hslToHex = hslToHex;
   w.settings = settings; w.saveSettings = saveSettings; w.applyTheme = applyTheme;
   w.getTheme = function () { return T; };
   w.POS = POS; w.fpsCfg = fpsCfg; w.fpsMeter = fpsMeter; w.applyOverlay = applyOverlay;
-  w.TOOLS = TOOLS;
+  w.TOOLS = TOOLS; w.toolUrl = toolUrl;
+  w.themeCss = themeCss; w.rnd = rnd; w.shuffle = shuffle; w.secureRandom = secureRandom; w.randU32 = randU32;
+  w.onPress = onPress; w.onSwipe = onSwipe; w.onArrows = onArrows;
+  w.pad = pad; w.fmtDur = fmtDur; w.parseNum = parseNum; w.fmtG = fmtG; w.beep = beep;
 
   applyTheme();
   if (d.addEventListener) { d.addEventListener("DOMContentLoaded", applyOverlay, false); }
