@@ -1,5 +1,7 @@
-# WP-web.apps
+# Windows Phone 8.1 Web Apps
 Apps und Tools über Internet Explorer 11 an Windows Phone 8.1 nutzbar
+
+Repository: `WP-web.apps`
 
 Reines HTML, CSS und ES5-JavaScript ohne Build-Schritt und ohne externe Abhängigkeiten. Jede App ist eine eigene Seite; Daten bleiben im `localStorage` des Browsers (Präfix `wp.`).
 
@@ -10,7 +12,7 @@ Reines HTML, CSS und ES5-JavaScript ohne Build-Schritt und ohne externe Abhängi
 | `index.html` | Startseite mit Suche, gruppiert |
 | `assets/common.js` | Theme, Speicher, Touch-Helfer (`onPress`, `onSwipe`), Zufall (`crypto`/`msCrypto`), Formatierung, App-Liste `TOOLS` |
 | `assets/style.css` | Layout für IE11 Mobile (Flexbox mit `-ms-`-Präfix, kein Grid, keine CSS-Variablen) |
-| `tools/NAME/` | System-Werkzeuge |
+| `tools/NAME/` | Werkzeuge (Rechner, FPS, Geräteinfo, Palette, Verknüpfungen) |
 | `apps/NAME/` | Spiele, Alltag, Technik & Lernen |
 | `einstellungen/` | Hell/Dunkel, OLED, Daten löschen |
 
@@ -24,7 +26,7 @@ Reines HTML, CSS und ES5-JavaScript ohne Build-Schritt und ohne externe Abhängi
 
 ## Neue App anlegen
 
-1. Ordner `apps/NAME/index.html` nach dem Muster einer bestehenden App anlegen (`ROOT="../../"`).
+1. Ordner `apps/NAME/index.html` nach dem Muster einer bestehenden App anlegen (`ROOT="../../"`, Titel `<title>NAME · Windows Phone 8.1 Web Apps</title>`).
 2. Eintrag in `TOOLS` in `assets/common.js` und Kachel in `index.html` ergänzen.
 3. Nur ES5 verwenden (kein `let`/`const`, keine Pfeilfunktionen, kein `Array.prototype.find/includes`, kein `Element.closest` – dafür gibt es `closest()` aus `common.js`).
 
