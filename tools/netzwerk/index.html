@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Netzwerk · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Netzwerk</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card"><h3>Verbindung</h3><div id="conn"></div></div>
+<div class="card"><h3>Öffentliche Adresse</h3><div id="pub"></div></div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var URL_TRACE = "https://speed.cloudflare.com/cdn-cgi/trace";
+  var ipText = "";
+
+  function drawConn() {
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    var online = navigator.onLine;
+    $("#conn").innerHTML = kv([
+      ["Status", online == null ? null : (online ? "online" : "offline")],
+      ["Verbindungsart", c && c.type ? c.type : "vom Browser nicht angegeben"],
+      ["Geschätzte Bandbreite", c && c.downlink != null ? nf(c.downlink, 1) + " Mbit/s" : null],
+      ["Geschätzte Latenz", c && c.rtt != null ? c.rtt + " ms" : null]
+    ]);
+  }
+  drawConn();
+  window.addEventListener("online", drawConn, false);
+  window.addEventListener("offline", drawConn, false);
+
+  function showStart(msg) {
+    $("#pub").innerHTML = '<button class="btn tonal" id="pubGo">Abfragen</button>' +
+      '<p class="muted" style="font-size:13px;margin:8px 0 0">Fragt <span class="mono">speed.cloudflare.com/cdn-cgi/trace</span> ab. Cloudflare sieht dabei deine IP-Adresse.</p>' +
+      (msg ? '<p class="err" style="margin:8px 0 0">' + esc(msg) + "</p>" : "");
+    $("#pubGo").onclick = query;
+  }
+  function parse(t) {
+    var o = {}, lines = String(t).split("\n"), i, p;
+    for (i = 0; i < lines.length; i++) {
+      p = lines[i].indexOf("=");
+      if (p > 0) { o[lines[i].slice(0, p).replace(/\s+/g, "")] = lines[i].slice(p + 1).replace(/^\s+|\s+$/g, ""); }
+    }
+    return o;
+  }
+  function query() {
+    var x;
+    $("#pub").innerHTML = "<p class='muted'>Frage ab …</p>";
+    try {
+      x = new XMLHttpRequest();
+      x.open("GET", URL_TRACE + "?r=" + new Date().getTime(), true);
+      x.timeout = 10000;
+      x.onload = function () {
+        var o;
+        if (x.status !== 200) { showStart("Abfrage fehlgeschlagen (Status " + x.status + ")."); return; }
+        o = parse(x.responseText);
+        if (!o.ip) { showStart("Abfrage fehlgeschlagen (unerwartete Antwort)."); return; }
+        ipText = o.ip;
+        $("#pub").innerHTML = kv([
+          ["IP-Adresse", o.ip],
+          ["Protokoll", o.ip.indexOf(":") >= 0 ? "IPv6" : "IPv4"],
+          ["Land", o.loc],
+          ["Rechenzentrum", o.colo],
+          ["HTTP", o.http],
+          ["TLS", o.tls],
+          ["Cloudflare WARP", o.warp]
+        ]) + '<div class="row" style="margin-top:8px"><button class="btn text" id="cpIp">IP kopieren</button><button class="btn text" id="again">Erneut abfragen</button></div>';
+        $("#cpIp").onclick = function () { copy(ipText); };
+        $("#again").onclick = query;
+      };
+      x.onerror = function () { showStart("Abfrage fehlgeschlagen. Keine Verbindung oder vom Browser blockiert."); };
+      x.ontimeout = function () { showStart("Zeitüberschreitung bei der Abfrage."); };
+      x.send();
+    } catch (e) { showStart("Abfrage fehlgeschlagen."); }
+  }
+  showStart("");
+})();
+</script>
+</body>
+</html>

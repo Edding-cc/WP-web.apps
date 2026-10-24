@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" manifest="../offline.appcache">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -18,6 +18,11 @@
   <div class="seg" id="themeSeg"><button data-v="light">Hell</button><button data-v="dark">Dunkel</button></div>
   <div class="switch" style="margin-top:8px"><span>OLED-Schwarz im Dunkelmodus (reiner schwarzer Hintergrund)</span><button class="tg" id="oled" aria-pressed="false" aria-label="OLED-Schwarz"></button></div>
   <p class="muted" style="font-size:14px;margin:4px 0 0">Die Akzentfarbe stellst du im Werkzeug <a href="../tools/palette/">Farbe &amp; Palette</a> ein.</p>
+</div>
+<div class="card">
+  <h3>Offline</h3>
+  <p class="muted" style="font-size:14px;margin:0 0 10px" id="offText"></p>
+  <button class="btn tonal" id="offBtn">Nach neuer Version suchen</button>
 </div>
 <div class="card">
   <h3>Daten</h3>
@@ -41,6 +46,21 @@
     settings.theme = b.getAttribute("data-v"); saveSettings(); draw();
   };
   $("#oled").onclick = function () { settings.oled = !settings.oled; saveSettings(); draw(); };
+  function offDraw(o) {
+    var t = {
+      none: "Offline-Speicher wird von diesem Browser nicht unterstützt oder ist noch nicht eingerichtet. Öffne die Seite einmal mit Internetverbindung.",
+      checking: "Suche nach neuer Version …",
+      downloading: "Apps werden für die Offline-Nutzung geladen" + (o.total ? " (" + o.loaded + " von " + o.total + ")" : "") + " …",
+      ready: "Alle Apps sind auf diesem Gerät gespeichert und funktionieren auch ohne Internet. Ausnahmen: Netzwerk und Speedtest.",
+      update: "Neue Version geladen. Sie ist beim nächsten Öffnen einer Seite aktiv.",
+      error: "Offline-Speicher konnte nicht aktualisiert werden. Ohne Internet wird die zuletzt gespeicherte Version genutzt.",
+      obsolete: "Offline-Speicher wurde vom Server entfernt."
+    };
+    $("#offText").textContent = t[o.state] || t.none;
+    $("#offBtn").style.display = window.applicationCache ? "" : "none";
+  }
+  offline.sub(offDraw); offDraw(offline);
+  $("#offBtn").onclick = function () { if (!offline.update()) { toast("Gerade nicht möglich"); } };
   $("#wipe").onclick = function () {
     if (!confirm("Alle gespeicherten Einstellungen, Verknüpfungen, Notizen, Aufgaben, Verläufe und Spielstände löschen?")) { return; }
     store.wipe(); location.reload();

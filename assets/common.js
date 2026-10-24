@@ -368,6 +368,9 @@
     { id: "rechner", dir: "tools", title: "Rechner" },
     { id: "fps", dir: "tools", title: "Bildrate (FPS)" },
     { id: "geraeteinfo", dir: "tools", title: "Geräteinfo" },
+    { id: "netzwerk", dir: "tools", title: "Netzwerk" },
+    { id: "speedtest", dir: "tools", title: "Speedtest" },
+    { id: "licht", dir: "tools", title: "Bildschirmlicht" },
     { id: "palette", dir: "tools", title: "Farbe & Palette" },
     { id: "verknuepfungen", dir: "tools", title: "Verknüpfungen" },
     { id: "minesweeper", dir: "apps", title: "Minesweeper" },
@@ -399,6 +402,35 @@
   ];
   function toolUrl(t) { return (w.ROOT || "") + (t.dir || "tools") + "/" + t.id + "/"; }
 
+  /* Offline (Application Cache, IE10/IE11). Die Liste steht in offline.appcache. */
+  var offlineSubs = [];
+  var offline = {
+    // "none" | "checking" | "downloading" | "ready" | "update" | "error" | "obsolete"
+    state: "none", loaded: 0, total: 0,
+    sub: function (fn) { offlineSubs.push(fn); },
+    update: function () { var ac = w.applicationCache; if (!ac) { return false; } try { ac.update(); return true; } catch (e) { return false; } }
+  };
+  function offlineSet(st) {
+    offline.state = st;
+    for (var i = 0; i < offlineSubs.length; i++) { try { offlineSubs[i](offline); } catch (e) {} }
+  }
+  (function () {
+    var ac = w.applicationCache; if (!ac || !ac.addEventListener) { return; }
+    var S = { 1: "ready", 2: "checking", 3: "downloading", 4: "update", 5: "obsolete" };
+    offline.state = S[ac.status] || "none";
+    ac.addEventListener("checking", function () { offlineSet("checking"); }, false);
+    ac.addEventListener("downloading", function () { offline.loaded = 0; offline.total = 0; offlineSet("downloading"); }, false);
+    ac.addEventListener("progress", function (e) { if (e && e.lengthComputable) { offline.loaded = e.loaded; offline.total = e.total; } offlineSet("downloading"); }, false);
+    ac.addEventListener("noupdate", function () { offlineSet("ready"); }, false);
+    ac.addEventListener("cached", function () { offlineSet("ready"); toast("Alle Apps sind jetzt offline verfügbar"); }, false);
+    ac.addEventListener("updateready", function () {
+      try { ac.swapCache(); } catch (e) {}
+      offlineSet("update"); toast("Neue Version geladen – beim nächsten Öffnen aktiv");
+    }, false);
+    ac.addEventListener("obsolete", function () { offlineSet("obsolete"); }, false);
+    ac.addEventListener("error", function () { offlineSet(w.navigator.onLine === false && ac.status === 1 ? "ready" : "error"); }, false);
+  })();
+
   w.$ = $; w.$$ = $$; w.closest = closest; w.esc = esc; w.assign = assign; w.store = store;
   w.toast = toast; w.copy = copy; w.nf = nf; w.kv = kv;
   w.hexToRgb = hexToRgb; w.rgbToHex = rgbToHex; w.mix = mix; w.rgbToHsl = rgbToHsl; w.hslToHex = hslToHex;
@@ -406,6 +438,7 @@
   w.getTheme = function () { return T; };
   w.POS = POS; w.fpsCfg = fpsCfg; w.fpsMeter = fpsMeter; w.applyOverlay = applyOverlay;
   w.TOOLS = TOOLS; w.toolUrl = toolUrl;
+  w.offline = offline;
   w.themeCss = themeCss; w.rnd = rnd; w.shuffle = shuffle; w.secureRandom = secureRandom; w.randU32 = randU32;
   w.onPress = onPress; w.onSwipe = onSwipe; w.onArrows = onArrows; w.contentWidth = contentWidth;
   w.pad = pad; w.fmtDur = fmtDur; w.parseNum = parseNum; w.fmtG = fmtG; w.beep = beep;
