@@ -99,6 +99,10 @@ canvas.chart { width: 100%; height: 120px; display: block; border-radius: 12px; 
 .pos-grid { font-size: 0; max-width: 220px; }
 .pos-grid button { display: inline-block; width: 32%; margin: 0 .66% 6px; min-height: 40px; border-radius: 10px; cursor: pointer; font-size: 14px; padding: 0; }
 
+/* Bildschirmlicht */
+#screenLight { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 60; display: none; cursor: pointer; }
+#screenLight .btn { position: absolute; bottom: 40px; left: 50%; margin-left: -80px; width: 160px; background: #000; color: #fff; }
+
 /* ---------- Apps (gemeinsam) ---------- */
 .home-group h2 { margin-top: 24px; }
 .stats { display: -ms-flexbox; display: flex; margin: 0 -4px 12px; }

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Bildschirmlicht · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Bildschirmlicht</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+  <h3>Bildschirmlicht</h3>
+  <p class="muted" style="font-size:14px;margin:0 0 10px">Zeigt den ganzen Bildschirm in einer hellen Farbe als Lichtquelle. Zum Beenden den Bildschirm antippen. Für volle Helligkeit die Bildschirmhelligkeit in den Systemeinstellungen erhöhen.</p>
+  <label class="fld">Farbe</label>
+  <div class="chips" id="lcCol"></div>
+  <div class="row" style="margin-top:12px"><button class="btn" id="lcOn">Bildschirmlicht an</button></div>
+</div>
+<div class="hint">Kamerablitz, Bildschirm wach halten und Vibration sind im Browser des Windows Phones nicht verfügbar.</div>
+</main>
+<div id="fpsOverlay"></div>
+<div id="screenLight"><button class="btn" id="lcOff">Bildschirmlicht aus</button></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var COLORS = [["Weiß", "#ffffff"], ["Warmweiß", "#ffe9c4"], ["Rot", "#ff2a00"], ["Grün", "#7dff7d"], ["Blau", "#7fa8ff"]];
+  var cur = store.get("licht.color", "#ffffff");
+  var ov = $("#screenLight");
+
+  function valid(c) { for (var i = 0; i < COLORS.length; i++) { if (COLORS[i][1] === c) { return true; } } return false; }
+  if (!valid(cur)) { cur = "#ffffff"; }
+  function drawCols() {
+    var h = "", i;
+    for (i = 0; i < COLORS.length; i++) {
+      h += '<button data-c="' + COLORS[i][1] + '" aria-pressed="' + (COLORS[i][1] === cur ? "true" : "false") + '">' + COLORS[i][0] + "</button>";
+    }
+    $("#lcCol").innerHTML = h;
+  }
+  drawCols();
+  $("#lcCol").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    cur = b.getAttribute("data-c"); store.set("licht.color", cur); drawCols();
+  };
+  function fullscreen(on) {
+    var el = document.documentElement, f;
+    try {
+      if (on) {
+        f = el.requestFullscreen || el.msRequestFullscreen || el.webkitRequestFullscreen;
+        if (f) { f.call(el); }
+      } else if (document.fullscreenElement || document.msFullscreenElement || document.webkitFullscreenElement) {
+        f = document.exitFullscreen || document.msExitFullscreen || document.webkitExitFullscreen;
+        if (f) { f.call(document); }
+      }
+    } catch (e) {}
+  }
+  function show(on) {
+    ov.style.display = on ? "block" : "none";
+    if (on) { ov.style.background = cur; }
+    fullscreen(on);
+  }
+  $("#lcOn").onclick = function () { show(true); };
+  ov.onclick = function () { show(false); };
+})();
+</script>
+</body>
+</html>

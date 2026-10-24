@@ -158,19 +158,37 @@
         inp.value = String(v).replace(".", ","); res.textContent = "";
       } catch (e) { res.textContent = e.message || "Ungültige Eingabe"; res.className = "res err"; }
     }
+    /* Einfügen und Löschen an der Cursorposition */
+    function selRange() {
+      var a = inp.value.length, b = a;
+      try { if (typeof inp.selectionStart === "number") { a = inp.selectionStart; b = inp.selectionEnd; } } catch (e) {}
+      return [a, b];
+    }
+    function setCur(p) { try { inp.setSelectionRange(p, p); } catch (e) {} }
+    function insert(t) {
+      var r = selRange();
+      inp.value = inp.value.slice(0, r[0]) + t + inp.value.slice(r[1]);
+      setCur(r[0] + t.length); preview();
+    }
+    function back() {
+      var r = selRange();
+      if (r[0] !== r[1]) { inp.value = inp.value.slice(0, r[0]) + inp.value.slice(r[1]); setCur(r[0]); }
+      else if (r[0] > 0) { inp.value = inp.value.slice(0, r[0] - 1) + inp.value.slice(r[0]); setCur(r[0] - 1); }
+      preview();
+    }
     pane.querySelector(".keys").onclick = function (e) {
       var b = closest(e.target, "button"); if (!b) { return; }
       var k = b.getAttribute("data-k");
       if (k === "=") { commit(); }
       else if (k === "C") { inp.value = ""; preview(); }
-      else if (k === "⌫") { inp.value = inp.value.slice(0, -1); preview(); }
+      else if (k === "⌫") { back(); }
       else if (k === "+/−") {
         var v = inp.value;
         inp.value = v.indexOf("−(") === 0 && v.charAt(v.length - 1) === ")" ? v.slice(2, -1) : v ? "−(" + v + ")" : "−";
         preview();
       }
-      else if (k === "√") { inp.value += "√("; preview(); }
-      else { inp.value += k; preview(); }
+      else if (k === "√") { insert("√("); }
+      else { insert(k); }
     };
     inp.oninput = preview;
     inp.onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); commit(); } };

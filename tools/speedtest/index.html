@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Speedtest · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Speedtest</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="hint">Misst die Internetgeschwindigkeit über Cloudflare (Ping, Download, Upload). Das dauert etwa 20 bis 40 Sekunden und verbraucht Datenvolumen (bis etwa 60 MB). Im Mobilfunk besser im WLAN testen. Andere Downloads vorher pausieren.</div>
+<div class="card" style="text-align:center">
+  <div class="muted" id="stPhase">Bereit</div>
+  <div class="big" id="stLive">–</div>
+  <div style="margin-top:12px"><button class="btn" id="stGo">Speedtest starten</button></div>
+</div>
+<div class="card"><h3>Ergebnis</h3><div id="stRes" class="muted">–</div></div>
+<p class="muted" style="font-size:13px">Messserver: <a href="https://speed.cloudflare.com/" target="_blank">Cloudflare</a>. Cloudflare sieht dabei deine IP-Adresse. Das Ergebnis ist ein Richtwert und kann vom Browser des Windows Phones nach unten abweichen.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var BASE = "https://speed.cloudflare.com";
+  var cur = null;       /* laufender XHR */
+  var running = false, aborted = false;
+
+  function now() { return window.performance && performance.now ? performance.now() : new Date().getTime(); }
+  function fmtBits(bps) {
+    if (!isFinite(bps) || bps <= 0) { return "–"; }
+    if (bps >= 1e9) { return nf(bps / 1e9, 2) + " Gbit/s"; }
+    if (bps >= 1e6) { return nf(bps / 1e6, 1) + " Mbit/s"; }
+    return nf(bps / 1e3, 0) + " kbit/s";
+  }
+  function phase(t) { $("#stPhase").textContent = t; }
+  function live(v) {
+    $("#stLive").innerHTML = v > 0 ? nf(v / 1e6, v >= 1e8 ? 0 : 1) + ' <span style="font-size:18px">Mbit/s</span>' : "–";
+  }
+  function rnd() { return new Date().getTime() + "" + Math.floor(Math.random() * 100000); }
+  /* a: [Bytes, bit/s]. Bevorzugt Messungen mit mindestens 1 MB (kurze Übertragungen messen vor allem die Latenz). */
+  function p90(list) {
+    var a = [], i;
+    for (i = 0; i < list.length; i++) { if (list[i][0] >= 1e6) { a.push(list[i][1]); } }
+    if (!a.length) { for (i = 0; i < list.length; i++) { a.push(list[i][1]); } }
+    if (!a.length) { return 0; }
+    a.sort(function (x, y) { return x - y; });
+    return a[Math.min(a.length - 1, Math.floor(a.length * 0.9))] || 0;
+  }
+
+  /* Eine Anfrage; cb(fehler, daten). Läuft nie parallel, cur erlaubt Abbruch. */
+  function req(method, url, body, onProg, cb) {
+    var x = new XMLHttpRequest(), t0 = 0, tFirst = 0, done = false;
+    function fin(err, extra) {
+      if (done) { return; }
+      done = true; cur = null;
+      cb(err, extra);
+    }
+    try {
+      x.open(method, url, true);
+      if (method === "GET") { try { x.responseType = "arraybuffer"; } catch (e1) {} }
+      x.timeout = 25000;
+      x.onprogress = function (e) {
+        var t = now();
+        if (!tFirst) { tFirst = t; }
+        if (onProg) { onProg(e.loaded || 0, t - tFirst); }
+      };
+      x.onload = function () {
+        var t = now(), got = 0;
+        if (x.status < 200 || x.status >= 300) { fin("Status " + x.status); return; }
+        try { got = x.response && x.response.byteLength != null ? x.response.byteLength : 0; } catch (e2) {}
+        fin(null, { total: t - t0, body: t - (tFirst || t0), first: tFirst ? tFirst - t0 : 0, bytes: got });
+      };
+      x.onerror = function () { fin(aborted ? "abgebrochen" : "Verbindung fehlgeschlagen oder blockiert"); };
+      x.ontimeout = function () { fin("Zeitüberschreitung"); };
+      x.onabort = function () { fin("abgebrochen"); };
+      cur = x;
+      t0 = now();
+      x.send(body || null);
+    } catch (e) { fin("Anfrage nicht möglich"); }
+  }
+
+  function doPing(n, cb) {
+    var times = [], k = 0;
+    function next() {
+      if (aborted) { cb("abgebrochen"); return; }
+      if (k >= n) {
+        times.sort(function (a, b) { return a - b; });
+        cb(null, times.length ? times[Math.floor(times.length / 2)] : 0);
+        return;
+      }
+      k++;
+      req("GET", BASE + "/__down?bytes=0&r=" + rnd(), null, null, function (err, r) {
+        if (err) { cb(err); return; }
+        times.push(r.total);
+        next();
+      });
+    }
+    next();
+  }
+
+  function doDown(cb) {
+    var plan = [[1e5, 3], [1e6, 3], [1e7, 2], [2.5e7, 1]], list = [], res = [], t0all = now(), i, k;
+    for (i = 0; i < plan.length; i++) { for (k = 0; k < plan[i][1]; k++) { list.push(plan[i][0]); } }
+    function next() {
+      var size;
+      if (aborted) { cb("abgebrochen"); return; }
+      if (!list.length || now() - t0all > 15000) { cb(res.length ? null : "Keine Messwerte", res); return; }
+      size = list.shift();
+      req("GET", BASE + "/__down?bytes=" + size + "&r=" + rnd(), null, function (loaded, ms) {
+        if (ms > 200) { live(loaded * 8 / (ms / 1000)); }
+      }, function (err, r) {
+        var secs;
+        if (err) { cb(res.length ? null : err, res); return; }
+        secs = (r.body > 5 ? r.body : r.total) / 1000;
+        if (secs > 0.005 && r.bytes) { res.push([r.bytes, r.bytes * 8 / secs]); }
+        if (secs > 6) { list = []; }
+        next();
+      });
+    }
+    next();
+  }
+
+  function doUp(ping, cb) {
+    var plan = [[1e5, 3], [1e6, 3], [5e6, 2], [1e7, 1]], list = [], res = [], t0all = now(), i, k;
+    for (i = 0; i < plan.length; i++) { for (k = 0; k < plan[i][1]; k++) { list.push(plan[i][0]); } }
+    function next() {
+      var size, body;
+      if (aborted) { cb("abgebrochen"); return; }
+      if (!list.length || now() - t0all > 15000) { cb(res.length ? null : "Keine Messwerte", res); return; }
+      size = list.shift();
+      try { body = new Uint8Array(size); } catch (e) { cb(res.length ? null : "Upload nicht möglich", res); return; }
+      req("POST", BASE + "/__up?r=" + rnd(), body, null, function (err, r) {
+        var secs;
+        if (err) { cb(res.length ? null : err, res); return; }
+        secs = Math.max(r.total / 2, r.total - ping) / 1000;
+        if (secs > 0.005) { res.push([size, size * 8 / secs]); live(size * 8 / secs); }
+        if (r.total > 6000) { list = []; }
+        next();
+      });
+    }
+    next();
+  }
+
+  function finish(text) {
+    running = false; cur = null;
+    phase(text); live(0);
+    $("#stGo").textContent = "Speedtest starten";
+    $("#stGo").className = "btn";
+  }
+  function show(o, errs) {
+    var h = '<div class="row" style="justify-content:space-around"><div><div class="muted">↓ Download</div><b style="font-size:22px">' + fmtBits(o.down) + "</b></div>" +
+      '<div><div class="muted">↑ Upload</div><b style="font-size:22px">' + fmtBits(o.up) + "</b></div></div>" +
+      (o.ping != null ? '<div class="muted" style="margin-top:8px">Ping ' + nf(o.ping, 0) + " ms</div>" : "");
+    if (errs.length) { h += '<p class="err" style="margin:8px 0 0">' + esc(errs.join(" ")) + "</p>"; }
+    $("#stRes").innerHTML = h;
+  }
+
+  $("#stGo").onclick = function () {
+    var out = { ping: null, down: 0, up: 0 }, errs = [];
+    if (running) { aborted = true; if (cur) { try { cur.abort(); } catch (e) {} } return; }
+    running = true; aborted = false;
+    $("#stGo").textContent = "Abbrechen"; $("#stGo").className = "btn tonal";
+    $("#stRes").textContent = "…"; live(0);
+    phase("Ping …");
+    doPing(6, function (err, ping) {
+      if (err) { if (aborted) { finish("Abgebrochen"); return; } $("#stRes").innerHTML = '<span class="err">Fehlgeschlagen: ' + esc(err) + ". Cloudflare nicht erreichbar oder vom Browser blockiert.</span>"; finish("Fehlgeschlagen"); return; }
+      out.ping = ping;
+      phase("Download ↓"); live(0);
+      doDown(function (e2, d) {
+        if (aborted) { finish("Abgebrochen"); return; }
+        if (e2) { errs.push("Download: " + e2 + "."); } else { out.down = p90(d); }
+        show(out, errs);
+        phase("Upload ↑"); live(0);
+        doUp(ping, function (e3, u) {
+          if (aborted) { show(out, errs); finish("Abgebrochen"); return; }
+          if (e3) { errs.push("Upload: " + e3 + "."); } else { out.up = p90(u); }
+          show(out, errs);
+          finish(errs.length ? "Fertig mit Fehlern" : "Fertig");
+        });
+      });
+    });
+  };
+  window.addEventListener("beforeunload", function () { aborted = true; if (cur) { try { cur.abort(); } catch (e) {} } }, false);
+})();
+</script>
+</body>
+</html>

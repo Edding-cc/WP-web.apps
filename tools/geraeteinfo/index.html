@@ -17,6 +17,7 @@
 <div class="card"><h3>Bildschirm</h3><div id="scr"></div></div>
 <div class="card"><h3>Grafik</h3><div id="gpu"></div></div>
 <div class="card"><h3>Browser</h3><div id="brw"></div></div>
+<div class="card"><h3>Speicher dieser Seite</h3><div id="sto"></div></div>
 <button class="btn tonal" id="cpAll">Alles kopieren</button>
 </main>
 <div id="fpsOverlay"></div>
@@ -47,6 +48,20 @@
     var o = -new Date().getTimezoneOffset();
     return "UTC" + (o >= 0 ? "+" : "-") + Math.floor(Math.abs(o) / 60) + (Math.abs(o) % 60 ? ":" + ("0" + Math.abs(o) % 60).slice(-2) : "");
   }
+  function dnt() {
+    var v = n.doNotTrack != null ? n.doNotTrack : (n.msDoNotTrack != null ? n.msDoNotTrack : window.doNotTrack);
+    return v == null ? null : (v === "1" || v === "yes" || v === 1 ? "an" : "aus");
+  }
+  function storageInfo() {
+    try {
+      var cnt = 0, chars = 0, i, k, v;
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (k && k.indexOf("wp.") === 0) { cnt++; v = localStorage.getItem(k) || ""; chars += k.length + v.length; }
+      }
+      return [["Einträge dieser Web-App", cnt], ["Belegt (ca.)", nf(chars * 2 / 1024, 1) + " KB"]];
+    } catch (e) { return [["Lokaler Speicher", "nicht verfügbar"]]; }
+  }
   function storageOk() { try { localStorage.setItem("wp.t", "1"); localStorage.removeItem("wp.t"); return true; } catch (e) { return false; } }
 
   $("#dev").innerHTML = kv([
@@ -70,12 +85,14 @@
   }
   drawScr(); window.addEventListener("resize", drawScr, false);
   $("#gpu").innerHTML = kv(gpuInfo());
+  $("#sto").innerHTML = kv(storageInfo());
   $("#brw").innerHTML = kv([
     ["User-Agent", n.userAgent],
-    ["Sprache", n.language || n.userLanguage],
+    ["Sprachen", n.languages && n.languages.length ? n.languages.join(", ") : (n.language || n.userLanguage || n.browserLanguage)],
     ["Zeitzone", tz()],
     ["Cookies", yn(n.cookieEnabled)],
     ["Lokaler Speicher", yn(storageOk())],
+    ["Do Not Track", dnt()],
     ["Als App geöffnet", yn(mq("(display-mode: standalone)") || n.standalone)],
     ["Dunkles Farbschema", yn(mq("(prefers-color-scheme: dark)"))]
   ]);
