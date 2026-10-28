@@ -39,7 +39,7 @@ Andere Plattformen (X, Instagram, Facebook, TikTok) sind nicht enthalten: Deren 
 
 ## Datenvolumen (Telekom)
 
-`tools/datenvolumen/` fragt `https://pass.telekom.de/api/service/generic/v1/status` per XHR ab. Außerhalb des Telekom-Mobilfunknetzes leitet die Telekom auf eine HTML-Hinweisseite um. pass.telekom.de sendet (zumindest außerhalb des Netzes geprüft) keine CORS-Freigabe und verbietet Einbetten (`X-Frame-Options: deny`). Scheitert die Abfrage im Browser, zeigt das Werkzeug das an und bietet den direkten Link zu pass.telekom.de an. Die technischen Details auf der Seite zeigen, woran es liegt.
+Die Kachel öffnet direkt `https://pass.telekom.de/`; `tools/datenvolumen/` leitet nur dorthin weiter (für Verknüpfungen). Anzeigen in der App geht nicht: pass.telekom.de erlaubt fremden Seiten weder das Auslesen (keine CORS-Freigabe, auf einem Telefon im Telekom-Netz mit Status 0 bestätigt) noch das Einbetten (`X-Frame-Options: deny`).
 
 ## Nicht enthalten
 
