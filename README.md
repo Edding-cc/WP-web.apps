@@ -12,7 +12,7 @@ Reines HTML, CSS und ES5-JavaScript ohne Build-Schritt und ohne externe Abhängi
 | `index.html` | Startseite mit Suche, gruppiert |
 | `assets/common.js` | Theme, Speicher, Touch-Helfer (`onPress`, `onSwipe`), Zufall (`crypto`/`msCrypto`), Formatierung, App-Liste `TOOLS` |
 | `assets/style.css` | Layout für IE11 Mobile (Flexbox mit `-ms-`-Präfix, kein Grid, keine CSS-Variablen) |
-| `tools/NAME/` | Werkzeuge (Rechner, FPS, Geräteinfo, Netzwerk, Speedtest, Bildschirmlicht, Palette, Verknüpfungen) |
+| `tools/NAME/` | Werkzeuge (Rechner, FPS, Geräteinfo, Netzwerk, Speedtest, Datenvolumen, Bildschirmlicht, Palette, Verknüpfungen) |
 | `apps/NAME/` | Spiele, Unterhaltung, Alltag, Technik & Lernen |
 | `einstellungen/` | Hell/Dunkel, OLED, Offline-Status, Daten löschen |
 | `offline.appcache` | Liste aller Seiten für die Offline-Nutzung (Application Cache) |
@@ -37,13 +37,17 @@ Reines HTML, CSS und ES5-JavaScript ohne Build-Schritt und ohne externe Abhängi
 
 Andere Plattformen (X, Instagram, Facebook, TikTok) sind nicht enthalten: Deren Schnittstellen setzen nach bisherigem Stand registrierte Entwickler-Apps mit geheimen Schlüsseln voraus, die eine statische Seite ohne Server nicht sicher verwahren kann.
 
+## Datenvolumen (Telekom)
+
+`tools/datenvolumen/` fragt `https://pass.telekom.de/api/service/generic/v1/status` per XHR ab. Außerhalb des Telekom-Mobilfunknetzes leitet die Telekom auf eine HTML-Hinweisseite um. pass.telekom.de sendet (zumindest außerhalb des Netzes geprüft) keine CORS-Freigabe und verbietet Einbetten (`X-Frame-Options: deny`). Scheitert die Abfrage im Browser, zeigt das Werkzeug das an und bietet den direkten Link zu pass.telekom.de an. Die technischen Details auf der Seite zeigen, woran es liegt.
+
 ## Nicht enthalten
 
 Akku, Sensoren, Blitz-Taschenlampe, Wach halten, Vibration, Geräteliste (Kamera, Mikrofon, USB, Bluetooth), Transkription (WebAssembly/WebGPU) und Netzwerkscan: Der Browser des Windows Phones bietet die nötigen Schnittstellen nicht.
 
 ## Offline
 
-Alle Seiten verweisen per `<html manifest="…offline.appcache">` auf den Application Cache, den IE11 auf Windows Phone 8.1 unterstützt. Nach dem ersten Aufruf mit Internet sind alle Apps auf dem Gerät gespeichert und laufen ohne Verbindung (außer Netzwerk, Speedtest und Social). Den Status zeigt `einstellungen/`.
+Alle Seiten verweisen per `<html manifest="…offline.appcache">` auf den Application Cache, den IE11 auf Windows Phone 8.1 unterstützt. Nach dem ersten Aufruf mit Internet sind alle Apps auf dem Gerät gespeichert und laufen ohne Verbindung (außer Netzwerk, Speedtest, Datenvolumen und Social). Den Status zeigt `einstellungen/`.
 
 - **Nach jeder Änderung** an einer Datei die Zeile `# Version …` in `offline.appcache` erhöhen, sonst lädt IE11 die neue Fassung nicht.
 - Fehlt eine in `offline.appcache` gelistete Datei, schlägt der ganze Offline-Speicher fehl.

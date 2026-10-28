@@ -370,6 +370,7 @@
     { id: "geraeteinfo", dir: "tools", title: "Geräteinfo" },
     { id: "netzwerk", dir: "tools", title: "Netzwerk" },
     { id: "speedtest", dir: "tools", title: "Speedtest" },
+    { id: "datenvolumen", dir: "tools", title: "Datenvolumen" },
     { id: "licht", dir: "tools", title: "Bildschirmlicht" },
     { id: "palette", dir: "tools", title: "Farbe & Palette" },
     { id: "verknuepfungen", dir: "tools", title: "Verknüpfungen" },

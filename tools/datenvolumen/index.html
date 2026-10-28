@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Datenvolumen · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.bar { height: 14px; border-radius: 999px; overflow: hidden; margin: 10px 0 4px; }
+.bar i { display: block; height: 100%; border-radius: 999px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Datenvolumen</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card"><h3>Telekom Mobilfunk</h3><div id="out"><p class="muted">Frage ab …</p></div></div>
+<div class="row"><button class="btn tonal" id="again">Erneut abfragen</button><a class="btn text" href="https://pass.telekom.de/" target="_blank" rel="noopener noreferrer">pass.telekom.de öffnen</a></div>
+<div class="card mt"><h3>Technische Details</h3><div id="diag" class="muted" style="font-size:14px">–</div></div>
+<p class="muted" style="font-size:14px">Fragt beim Öffnen <span class="mono">pass.telekom.de</span> ab. Das funktioniert nur über das Telekom-Mobilfunknetz (WLAN aus). Die Anfrage geht direkt an die Telekom, die dabei deine IP-Adresse sieht – wie beim normalen Aufruf der Seite. Ob der Browser einer fremden Seite das Auslesen erlaubt, entscheidet pass.telekom.de; die technischen Details unten zeigen, woran es gegebenenfalls scheitert.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var API = "https://pass.telekom.de/api/service/generic/v1/status";
+
+  function gb(bytes) { return nf(bytes / 1073741824, 2) + " GB"; }
+  function num(v) { return typeof v === "number" && isFinite(v) ? v : NaN; }
+  function msg(html) { $("#out").innerHTML = html; }
+  function diag(pairs) { $("#diag").innerHTML = kv(pairs); }
+  function show(j) {
+    /* Feldnamen nach bisherigen Beobachtungen; Unbekanntes wird unten roh angezeigt */
+    var init = num(j.initialVolume), used = num(j.usedVolume), pct = num(j.usedPercentage), h = "", rest, rows = [], k, t = getTheme();
+    if (isNaN(pct) && init > 0 && !isNaN(used)) { pct = used / init * 100; }
+    if (j.passName) { h += '<p style="margin:0 0 4px;font-weight:600">' + esc(j.passName) + "</p>"; }
+    if (init > 0 && !isNaN(used)) {
+      rest = Math.max(0, init - used);
+      h += '<div class="big">' + esc(gb(rest)) + '</div><p class="muted" style="margin:2px 0 0">noch übrig von ' + esc(j.initialVolumeStr || gb(init)) + "</p>";
+    } else if (j.usedVolumeStr || !isNaN(used)) {
+      h += '<div class="big">' + esc(j.usedVolumeStr || gb(used)) + '</div><p class="muted" style="margin:2px 0 0">verbraucht</p>';
+    }
+    if (!isNaN(pct)) {
+      pct = Math.max(0, Math.min(100, pct));
+      h += '<div class="bar" style="background:' + t.sf2 + '"><i style="width:' + pct + "%;background:" + (pct > 90 ? t.err : t.ac) + '"></i></div><p class="muted" style="margin:0;font-size:14px">' + nf(pct, 0) + " % verbraucht</p>";
+    }
+    if (j.remainingTimeStr) { h += '<p style="margin:10px 0 0">Gültig noch: <b>' + esc(j.remainingTimeStr) + "</b></p>"; }
+    if (!h) { h = '<p>Antwort erhalten, aber in unbekannter Form. Die Felder stehen unten unter „Technische Details“.</p>'; }
+    msg(h);
+    for (k in j) { if (j.hasOwnProperty(k) && (typeof j[k] !== "object" || j[k] === null)) { rows.push([k, String(j[k])]); } }
+    diag([["Ergebnis", "Daten gelesen"]].concat(rows));
+  }
+  function query() {
+    var x, t0 = +new Date();
+    if (navigator.onLine === false) { msg('<p class="err" style="margin:0">Keine Internetverbindung.</p>'); diag([["Ergebnis", "offline"]]); return; }
+    msg("<p class='muted' style='margin:0'>Frage ab …</p>");
+    try {
+      x = new XMLHttpRequest();
+      x.open("GET", API + "?r=" + t0, true);
+      x.timeout = 15000;
+      x.onload = function () {
+        var j = null, ct = x.getResponseHeader("Content-Type") || "";
+        try { j = JSON.parse(x.responseText); } catch (e) {}
+        if (x.status === 200 && j && typeof j === "object") { show(j); return; }
+        /* außerhalb des Telekom-Netzes leitet die Schnittstelle auf eine Hinweisseite (HTML) um */
+        msg('<p style="margin:0;font-weight:600">Nicht im Telekom-Mobilfunknetz</p><p class="muted" style="margin:6px 0 0;font-size:14px">WLAN ausschalten und erneut abfragen.</p>');
+        diag([["Ergebnis", "keine Verbrauchsdaten"], ["HTTP-Status", x.status], ["Inhaltstyp", ct], ["Dauer", (+new Date() - t0) + " ms"]]);
+      };
+      x.onerror = function () {
+        msg('<p style="margin:0;font-weight:600">Nicht im Telekom-Mobilfunknetz – oder Zugriff gesperrt</p><p class="muted" style="margin:6px 0 0;font-size:14px">Bist du im Telekom-Mobilfunknetz (WLAN aus), erlaubt pass.telekom.de das Auslesen durch diese Seite nicht. Dann hilft nur „pass.telekom.de öffnen“.</p>');
+        diag([["Ergebnis", "vom Browser blockiert oder keine Verbindung"], ["HTTP-Status", x.status], ["Dauer", (+new Date() - t0) + " ms"], ["Hinweis", "Typisch, wenn die Telekom keine Freigabe für fremde Seiten (CORS) sendet"]]);
+      };
+      x.ontimeout = function () { msg('<p class="err" style="margin:0">Zeitüberschreitung bei der Abfrage.</p>'); diag([["Ergebnis", "Zeitüberschreitung"]]); };
+      x.send();
+    } catch (e) {
+      msg('<p class="err" style="margin:0">Abfrage nicht möglich.</p>'); diag([["Ergebnis", "Ausnahme"], ["Meldung", e.message || String(e)]]);
+    }
+  }
+  $("#again").onclick = query;
+  query();
+})();
+</script>
+</body>
+</html>
