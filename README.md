@@ -19,7 +19,7 @@ Reines HTML, CSS und ES5-JavaScript ohne Build-Schritt und ohne externe Abhängi
 
 ## Apps
 
-**Spiele:** Minesweeper, 2048, Snake, Tetris (Touch-Tasten), Sudoku, Memory, Schiebepuzzle, Tic-Tac-Toe, Vier in einer Reihe, Reversi, Code knacken, Galgenmännchen, Mauerbrecher, Flattervogel, Farbfolge, Lichter aus, Reaktionstest
+**Spiele:** Minesweeper, 2048, Snake, Tetris (Touch-Tasten), Sudoku, Memory, Schiebepuzzle, Tic-Tac-Toe, Vier in einer Reihe, Reversi, Code knacken, Galgenmännchen, Mauerbrecher, Flattervogel, Farbfolge, Lichter aus, Reaktionstest, Solitär, Kopfrechnen-Duell, Fünf Würfel, Ping-Pong
 
 **Unterhaltung:** Zeichenblock, Glücksrad, Laufschrift, Social (Bluesky und Mastodon)
 

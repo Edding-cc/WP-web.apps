@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Solitär · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#sb { position: relative; margin: 0 auto 12px; -ms-user-select: none; user-select: none; -webkit-user-select: none; -ms-touch-action: manipulation; touch-action: manipulation; }
+#sb .slot, #sb .cd { position: absolute; border-radius: 6px; }
+#sb .slot { text-align: center; font-size: 20px; cursor: pointer; }
+#sb .cd { background: #fff; color: #111; box-shadow: 0 0 0 1px rgba(0,0,0,.35); cursor: pointer; overflow: hidden; font-family: "Segoe WP", "Segoe UI", Arial, sans-serif; }
+#sb .cd.red { color: #c62828; }
+#sb .cd .r { position: absolute; left: 3px; top: 1px; font-weight: 700; line-height: 1; white-space: nowrap; }
+#sb .cd .m { position: absolute; right: 3px; bottom: 2px; line-height: 1; }
+#sb .cd.down { background: #1f3a5f; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0, rgba(255,255,255,.12) 3px, transparent 3px, transparent 7px); box-shadow: 0 0 0 1px rgba(255,255,255,.35) inset, 0 0 0 1px rgba(0,0,0,.4); }
+#sb .cd.sel { box-shadow: 0 0 0 3px #f4c430; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Solitär</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="sDraw"><button data-d="1">1 Karte ziehen</button><button data-d="3">3 Karten ziehen</button></div>
+<div class="stats"><div><b id="sMoves">0</b><span>Züge</span></div><div><b id="sTime">00:00</b><span>Zeit</span></div><div><b id="sBest">–</b><span>Bestzeit</span></div><div><b id="sWon">0</b><span>Gewonnen</span></div></div>
+<div id="sb"></div>
+<p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl"><button id="sUndo" class="tonal">Zurück</button><button id="sAuto" class="tonal">Ablegen</button><button id="sNew" class="ac">Neues Spiel</button></div>
+<p class="muted" style="font-size:14px">Ziel: alle Karten nach Farbe von Ass bis König auf die vier Ablagen oben rechts. In den Spalten abwechselnd rot und schwarz absteigend anlegen; auf leere Spalten nur Könige. Eine Karte <b>antippen</b> legt sie automatisch an die beste Stelle. Geht das nicht, wird sie markiert – dann das Ziel antippen. „Ablegen“ bringt alle passenden Karten auf die Ablagen. Das Spiel wird gespeichert.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var SUIT = ["♠", "♥", "♦", "♣"], RANK = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "B", "D", "K"];
+  var draw = store.get("sol.draw", 1), stats = store.get("sol.stats", { won: 0, best: {} });
+  var G, hist = [], sel = null, cw = 0, ch = 0, gap = 4, timer = 0;
+
+  themeCss(function (t) { return "#sb .slot{box-shadow:inset 0 0 0 2px " + t.bd + ";color:" + t.mu + "}"; });
+
+  function red(c) { return c.s === 1 || c.s === 2; }
+  function newGame() {
+    var deck = [], s, r, i, k;
+    for (s = 0; s < 4; s++) { for (r = 1; r <= 13; r++) { deck.push({ s: s, r: r, up: false }); } }
+    shuffle(deck);
+    G = { stock: [], waste: [], f: [[], [], [], []], t: [[], [], [], [], [], [], []], moves: 0, time: 0, won: false, started: false };
+    k = 0;
+    for (i = 0; i < 7; i++) { for (r = 0; r <= i; r++) { G.t[i].push(deck[k++]); } G.t[i][i].up = true; }
+    while (k < 52) { G.stock.push(deck[k++]); }
+    hist = []; sel = null; $("#sMsg").textContent = "";
+    save(); render();
+  }
+  function save() { store.set("sol.game", { g: G, d: draw }); }
+  function snap() { hist.push(JSON.stringify(G)); if (hist.length > 150) { hist.shift(); } }
+  function pile(id) { return id === "stock" ? G.stock : id === "waste" ? G.waste : id.charAt(0) === "f" ? G.f[+id.charAt(1)] : G.t[+id.charAt(1)]; }
+  function top(a) { return a[a.length - 1]; }
+
+  /* ---------- Regeln ---------- */
+  function canFound(c, f) { var tp = top(f); return tp ? tp.s === c.s && c.r === tp.r + 1 : c.r === 1; }
+  function canTab(c, t) { var tp = top(t); return tp ? tp.up && red(tp) !== red(c) && c.r === tp.r - 1 : c.r === 13; }
+  /* Karten ab Index i von Stapel "from" nach "to" legen, wenn erlaubt */
+  function move(from, i, to) {
+    var src = pile(from), dst = pile(to), c = src[i], k, run;
+    if (!c || !c.up || from === to) { return false; }
+    if (to.charAt(0) === "f") { if (i !== src.length - 1 || !canFound(c, dst)) { return false; } }
+    else if (to.charAt(0) === "t") { if (!canTab(c, dst)) { return false; } }
+    else { return false; }
+    if ((from === "waste" || from.charAt(0) === "f") && i !== src.length - 1) { return false; }
+    snap();
+    run = src.splice(i, src.length - i);
+    for (k = 0; k < run.length; k++) { dst.push(run[k]); }
+    if (from.charAt(0) === "t" && src.length && !top(src).up) { top(src).up = true; }
+    G.moves++; started();
+    return true;
+  }
+  /* beste Stelle: einzelne Karte zuerst auf eine Ablage, sonst an eine Spalte (belegte vor leeren) */
+  function autoMove(from, i) {
+    var src = pile(from), k;
+    if (i === src.length - 1 && from.charAt(0) !== "f") { for (k = 0; k < 4; k++) { if (move(from, i, "f" + k)) { return true; } } }
+    for (k = 0; k < 7; k++) { if (G.t[k].length && move(from, i, "t" + k)) { return true; } }
+    if (!(from.charAt(0) === "t" && i === 0)) { for (k = 0; k < 7; k++) { if (!G.t[k].length && move(from, i, "t" + k)) { return true; } } }
+    return false;
+  }
+  function drawCards() {
+    snap();
+    if (!G.stock.length) {
+      if (!G.waste.length) { hist.pop(); return; }
+      while (G.waste.length) { var c = G.waste.pop(); c.up = false; G.stock.push(c); }
+    } else {
+      for (var k = 0; k < draw && G.stock.length; k++) { var d = G.stock.pop(); d.up = true; G.waste.push(d); }
+    }
+    G.moves++; started();
+  }
+  function allUp() { for (var k = 0; k < 7; k++) { for (var j = 0; j < G.t[k].length; j++) { if (!G.t[k][j].up) { return false; } } } return !G.stock.length && !G.waste.length; }
+  function checkWin() {
+    var n = G.f[0].length + G.f[1].length + G.f[2].length + G.f[3].length;
+    if (n === 52 && !G.won) {
+      G.won = true; stopTimer(); stats.won++;
+      if (!stats.best[draw] || G.time < stats.best[draw]) { stats.best[draw] = G.time; }
+      store.set("sol.stats", stats);
+      $("#sMsg").textContent = "Gewonnen in " + G.moves + " Zügen und " + fmtDur(G.time * 1000) + "!";
+    }
+  }
+  function autoFinish() {
+    var any = false, k, j, src;
+    for (k = -1; k < 7; k++) {
+      src = k < 0 ? "waste" : "t" + k;
+      if (pile(src).length) { for (j = 0; j < 4; j++) { if (move(src, pile(src).length - 1, "f" + j)) { any = true; break; } } }
+    }
+    sel = null; render(); save(); checkWin();
+    if (any) { setTimeout(autoFinish, 120); }
+    else if (!G.won) { toast("Nichts mehr abzulegen"); }
+  }
+
+  /* ---------- Zeit ---------- */
+  function started() { if (!G.started) { G.started = true; } if (!timer && !G.won) { timer = setInterval(tick, 1000); } }
+  function tick() { if (document.hidden || document.msHidden) { return; } G.time++; $("#sTime").textContent = fmtDur(G.time * 1000); if (G.time % 10 === 0) { save(); } }
+  function stopTimer() { clearInterval(timer); timer = 0; }
+
+  /* ---------- Darstellung ---------- */
+  function card(c, x, y, id, i, playable) {
+    var cls = "cd" + (c.up ? (red(c) ? " red" : "") : " down") + (sel && sel.p === id && sel.i <= i && id.charAt(0) === "t" ? " sel" : sel && sel.p === id && sel.i === i ? " sel" : "");
+    var fs = Math.round(cw * 0.32);
+    return '<div class="' + cls + '" data-p="' + id + '" data-i="' + i + '"' + (playable === false ? ' data-x="1"' : "") + ' style="left:' + x + "px;top:" + y + "px;width:" + cw + "px;height:" + ch + 'px">' +
+      (c.up ? '<span class="r" style="font-size:' + fs + 'px">' + RANK[c.r] + SUIT[c.s] + '</span><span class="m" style="font-size:' + Math.round(cw * 0.5) + 'px">' + SUIT[c.s] + "</span>" : "") + "</div>";
+  }
+  function slot(x, y, id, label) { return '<div class="slot" data-p="' + id + '" style="left:' + x + "px;top:" + y + "px;width:" + cw + "px;height:" + ch + "px;line-height:" + ch + 'px">' + label + "</div>"; }
+  function render() {
+    var W = contentWidth(), h = "", k, j, x, y, p, maxY = 0, dDown, dUp, wn, ws;
+    cw = Math.floor((W - gap * 6) / 7); ch = Math.round(cw * 1.4);
+    dDown = Math.round(ch * 0.14); dUp = Math.round(ch * 0.3);
+    /* Talon und Ablagestapel */
+    h += slot(0, 0, "stock", G.waste.length ? "↻" : "");
+    if (G.stock.length) { h += card(top(G.stock), 0, 0, "stock", G.stock.length - 1); }
+    h += slot(cw + gap, 0, "waste", "");
+    wn = Math.min(draw === 3 ? 3 : 1, G.waste.length); ws = Math.round(cw * 0.32);
+    for (j = 0; j < wn; j++) { k = G.waste.length - wn + j; h += card(G.waste[k], cw + gap + j * ws, 0, "waste", k, k === G.waste.length - 1); }
+    for (k = 0; k < 4; k++) {
+      x = (3 + k) * (cw + gap); p = G.f[k];
+      h += slot(x, 0, "f" + k, "A");
+      if (p.length) { h += card(top(p), x, 0, "f" + k, p.length - 1); }
+    }
+    /* Spalten */
+    for (k = 0; k < 7; k++) {
+      x = k * (cw + gap); y = ch + 12; p = G.t[k];
+      h += slot(x, y, "t" + k, "K");
+      for (j = 0; j < p.length; j++) { h += card(p[j], x, y, "t" + k, j); y += p[j].up ? dUp : dDown; }
+      maxY = Math.max(maxY, y - (p.length ? (top(p).up ? dUp : dDown) : 0) + ch);
+    }
+    $("#sb").style.width = (cw * 7 + gap * 6) + "px"; $("#sb").style.height = Math.max(maxY, ch * 2 + 12) + 8 + "px";
+    $("#sb").innerHTML = h;
+    $("#sMoves").textContent = G.moves; $("#sTime").textContent = fmtDur(G.time * 1000);
+    $("#sBest").textContent = stats.best[draw] ? fmtDur(stats.best[draw] * 1000) : "–"; $("#sWon").textContent = stats.won;
+    $("#sAuto").textContent = allUp() && !G.won ? "Fertig legen" : "Ablegen";
+    var bs = $$("#sDraw button");
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", +bs[k].getAttribute("data-d") === draw ? "true" : "false"); }
+  }
+  function after() { sel = null; save(); render(); checkWin(); }
+
+  $("#sb").onclick = function (e) {
+    var el = closest(e.target, ".cd") || closest(e.target, ".slot"), id, i, src;
+    if (!el || G.won) { return; }
+    id = el.getAttribute("data-p"); i = el.getAttribute("data-i") == null ? -1 : +el.getAttribute("data-i");
+    if (id === "stock") { sel = null; drawCards(); save(); render(); return; }
+    if (el.getAttribute("data-x")) { return; }
+    /* markierte Karte auf ein angetipptes Ziel legen */
+    if (sel && sel.p !== id) {
+      if ((id.charAt(0) === "t" || id.charAt(0) === "f") && move(sel.p, sel.i, id)) { after(); return; }
+      sel = null; render();
+      if (i < 0) { return; }
+    } else if (sel && sel.p === id && sel.i === i) { sel = null; render(); return; }
+    if (i < 0) { return; }
+    src = pile(id);
+    if (!src[i] || !src[i].up) { return; }
+    if (id === "waste" && i !== src.length - 1) { return; }
+    if (autoMove(id, i)) { after(); return; }
+    sel = { p: id, i: i }; render(); toast("Ziel antippen");
+  };
+  $("#sUndo").onclick = function () {
+    if (!hist.length) { toast("Nichts rückgängig zu machen"); return; }
+    var t = G.time; G = JSON.parse(hist.pop()); G.time = t; G.won = false; sel = null; save(); render(); $("#sMsg").textContent = "";
+  };
+  $("#sAuto").onclick = function () { if (!G.won) { autoFinish(); } };
+  $("#sNew").onclick = function () { if (G.moves && !G.won && !confirm("Laufendes Spiel abbrechen und neu mischen?")) { return; } stopTimer(); newGame(); };
+  $("#sDraw").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    var d = +b.getAttribute("data-d"); if (d === draw) { return; }
+    if (G.moves && !G.won && !confirm("Ziehmodus ändern startet ein neues Spiel. Fortfahren?")) { return; }
+    draw = d; store.set("sol.draw", draw); stopTimer(); newGame();
+  };
+  window.onresize = render;
+  var saved = store.get("sol.game", null);
+  if (saved && saved.g && saved.g.t && !saved.g.won && saved.d === draw) { G = saved.g; render(); if (G.started) { started(); } } else { newGame(); }
+})();
+</script>
+</body>
+</html>
