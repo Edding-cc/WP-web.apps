@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Glücksrad · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#cv { display: block; cursor: pointer; }
+#wRes { font-size: 26px; font-weight: 700; text-align: center; min-height: 1.4em; margin: 4px 0 8px; word-wrap: break-word; }
+#wList { min-height: 150px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Glücksrad</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="board" id="wBoard"><canvas id="cv"></canvas></div>
+<div id="wRes"></div>
+<div class="ctl c2"><button id="wSpin" class="ac">Drehen</button><button id="wDrop">Gezogenes entfernen</button></div>
+<div class="card">
+  <h3>Einträge</h3>
+  <div class="chips" id="wPre"><button data-p="0">Ja / Nein</button><button data-p="1">1 bis 6</button><button data-p="2">Essen</button><button data-p="3">Wer fängt an?</button></div>
+  <label class="fld" for="wList">Ein Eintrag pro Zeile (2 bis 24)</label>
+  <textarea id="wList" rows="6"></textarea>
+</div>
+<div class="card"><h3>Verlauf</h3><div id="wHist" class="muted" style="font-size:14px">Noch nichts gedreht.</div></div>
+<p class="muted" style="font-size:14px">Das Ergebnis wird mit dem Zufallsgenerator des Browsers (<span class="mono">crypto</span>) bestimmt, die Drehung zeigt es nur an. Mit „Gezogenes entfernen“ fliegt jedes Ergebnis aus der Liste – praktisch für Reihenfolgen.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var COLS = ["#e0483e", "#3a6fe0", "#43b047", "#f4c430", "#8e5bd1", "#ee7a22", "#29a0c6", "#d14f9c", "#7cb342", "#5c6bc0", "#ff8a65", "#00897b"];
+  var PRE = [["Ja", "Nein"], ["1", "2", "3", "4", "5", "6"], ["Pizza", "Pasta", "Salat", "Suppe", "Burger", "Curry"], ["Person 1", "Person 2", "Person 3", "Person 4"]];
+  var raf = window.requestAnimationFrame || window.msRequestAnimationFrame || function (f) { return setTimeout(function () { f(+new Date()); }, 16); };
+  var cv = $("#cv"), ctx = cv.getContext("2d"), D = 300;
+  var items, rot = 0, spinning = false, drop = store.get("wheel.drop", false), hist = [];
+
+  function load() {
+    var v = store.get("wheel.list", null);
+    $("#wList").value = v == null ? PRE[0].join("\n") : v;
+    parse();
+  }
+  function parse() {
+    var raw = $("#wList").value.split(/\r?\n/), k, s;
+    items = [];
+    for (k = 0; k < raw.length && items.length < 24; k++) { s = raw[k].replace(/^\s+|\s+$/g, ""); if (s) { items.push(s); } }
+  }
+  function size() {
+    var r = window.devicePixelRatio || 1;
+    D = Math.min(contentWidth(), 360);
+    cv.style.width = cv.style.height = D + "px"; $("#wBoard").style.width = D + "px";
+    cv.width = cv.height = Math.round(D * r);
+    ctx.setTransform(r, 0, 0, r, 0, 0);
+    draw();
+  }
+  function color(i, n) { var c = i % COLS.length; if (i === n - 1 && n > 1 && c === 0) { c = 1; } return COLS[c]; }
+  function lum(hex) { var c = hexToRgb(hex); return (c[0] * 299 + c[1] * 587 + c[2] * 114) / 1000; }
+  function draw() {
+    var t = getTheme(), n = items.length, cx = D / 2, cy = D / 2 + 6, R = D / 2 - 14, seg, k, a0, label, fs;
+    ctx.clearRect(0, 0, D, D);
+    if (n < 2) {
+      ctx.fillStyle = t.sf2; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = t.mu; ctx.font = "15px 'Segoe WP','Segoe UI',Roboto,Arial,sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("Mindestens zwei Einträge", cx, cy); return;
+    }
+    seg = Math.PI * 2 / n; fs = Math.max(11, Math.min(20, Math.round(R * 0.6 / Math.max(4, n) * 2.2)));
+    for (k = 0; k < n; k++) {
+      a0 = -Math.PI / 2 + rot + k * seg;
+      ctx.fillStyle = color(k, n);
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + seg); ctx.closePath(); ctx.fill();
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(a0 + seg / 2);
+      ctx.fillStyle = lum(color(k, n)) > 150 ? "#111111" : "#ffffff";
+      ctx.font = "600 " + fs + "px 'Segoe WP','Segoe UI',Roboto,Arial,sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      label = items[k];
+      while (label.length > 1 && ctx.measureText(label).width > R * 0.72) { label = label.slice(0, -2) + "…"; }
+      ctx.fillText(label, R - 12, 0);
+      ctx.restore();
+    }
+    ctx.fillStyle = t.sf; ctx.beginPath(); ctx.arc(cx, cy, R * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = t.bd; ctx.lineWidth = 2; ctx.stroke();
+    /* Zeiger oben */
+    ctx.fillStyle = t.tx; ctx.beginPath(); ctx.moveTo(cx - 12, 2); ctx.lineTo(cx + 12, 2); ctx.lineTo(cx, 30); ctx.closePath(); ctx.fill();
+  }
+  function current() { var n = items.length, seg = Math.PI * 2 / n, a = ((-rot) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2); return Math.floor(a / seg) % n; }
+  function spin() {
+    if (spinning) { return; }
+    parse();
+    if (items.length < 2) { toast("Bitte mindestens zwei Einträge"); return; }
+    var n = items.length, seg = Math.PI * 2 / n, win = rnd(n), off = (0.15 + rnd(700) / 1000) * seg;
+    var target = win * seg + off, start = rot, two = Math.PI * 2;
+    var delta = ((-target - rot) % two + two) % two + two * (5 + rnd(3)), dur = 4200 + rnd(800), t0 = 0;
+    spinning = true; $("#wRes").textContent = ""; $("#wSpin").disabled = true;
+    function step(t) {
+      if (!t0) { t0 = t; }
+      var p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      rot = start + delta * e; draw();
+      if (p < 1) { raf(step); return; }
+      rot = rot % two; spinning = false; $("#wSpin").disabled = false;
+      done(items[current()]);
+    }
+    raf(step);
+  }
+  function done(res) {
+    $("#wRes").textContent = res;
+    hist.unshift(res); if (hist.length > 12) { hist.pop(); }
+    $("#wHist").innerHTML = esc(hist.join(" · "));
+    if (drop) {
+      var k = items.indexOf(res);
+      if (k >= 0) { items.splice(k, 1); $("#wList").value = items.join("\n"); store.set("wheel.list", $("#wList").value); rot = 0; draw(); }
+    }
+  }
+  function dropBtn() { $("#wDrop").className = drop ? "ac" : "tonal"; $("#wDrop").setAttribute("aria-pressed", drop ? "true" : "false"); }
+  $("#wSpin").onclick = spin;
+  onPress(cv, spin);
+  $("#wDrop").onclick = function () { drop = !drop; store.set("wheel.drop", drop); dropBtn(); toast(drop ? "Ergebnisse werden aus der Liste entfernt" : "Liste bleibt unverändert"); };
+  $("#wList").oninput = function () { if (spinning) { return; } store.set("wheel.list", this.value); parse(); rot = 0; draw(); };
+  $("#wPre").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b || spinning) { return; }
+    $("#wList").value = PRE[parseInt(b.getAttribute("data-p"), 10)].join("\n"); $("#wList").oninput();
+  };
+  window.onresize = size;
+  load(); dropBtn(); size();
+})();
+</script>
+</body>
+</html>

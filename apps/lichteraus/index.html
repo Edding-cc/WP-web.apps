@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Lichter aus · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#lg { font-size: 0; -ms-touch-action: manipulation; touch-action: manipulation; }
+#lg button { display: inline-block; vertical-align: top; border: 0; padding: 0; cursor: pointer; border-radius: 12px; -ms-transition: background .12s; transition: background .12s; }
+#lg button.tip { -ms-animation: tip .5s 3; animation: tip .5s 3; }
+@-ms-keyframes tip { 50% { -ms-transform: scale(.82); } }
+@keyframes tip { 50% { transform: scale(.82); } }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Lichter aus</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="stats"><div><b id="lLevel">1</b><span>Level</span></div><div><b id="lMoves">0</b><span>Züge</span></div><div><b id="lMin">–</b><span>Lösbar in</span></div></div>
+<div class="board" id="lg"></div>
+<p class="center" id="lMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl"><button id="lTip" class="tonal">Tipp</button><button id="lNext" class="ac">Neu</button><button id="lReset" class="tonal">Von vorn</button></div>
+<p class="muted" style="font-size:14px">Ein Feld antippen schaltet es und seine vier Nachbarn um. Ziel: alle Lichter aus. Jedes Rätsel ist lösbar; „Lösbar in“ nennt eine Zugzahl, mit der es sicher geht. Mit jedem gelösten Level wird es schwieriger.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var N = 5;
+  var level = store.get("lights.level", 1), gen, start, cells, user, moves, done;
+
+  themeCss(function (t) { return "#lg button{background:" + t.sf2 + ";box-shadow:inset 0 0 0 1px " + t.bd + "}#lg button.on{background:" + t.ac + ";box-shadow:0 0 12px " + t.ac + "}"; });
+
+  function toggle(bd, i) {
+    var x = i % N, y = (i - x) / N;
+    bd[i] ^= 1;
+    if (x > 0) { bd[i - 1] ^= 1; } if (x < N - 1) { bd[i + 1] ^= 1; }
+    if (y > 0) { bd[i - N] ^= 1; } if (y < N - 1) { bd[i + N] ^= 1; }
+  }
+  function zero() { var a = [], k; for (k = 0; k < N * N; k++) { a.push(0); } return a; }
+  function lit(bd) { for (var k = 0; k < bd.length; k++) { if (bd[k]) { return true; } } return false; }
+  /* Rätsel aus zufälligen Zügen erzeugen: so ist es garantiert lösbar */
+  function newPuzzle() {
+    var n = Math.min(3 + level, 18), order, k;
+    do {
+      gen = zero(); cells = zero(); order = [];
+      for (k = 0; k < N * N; k++) { order.push(k); }
+      shuffle(order);
+      for (k = 0; k < n; k++) { gen[order[k]] = 1; toggle(cells, order[k]); }
+    } while (!lit(cells));
+    start = cells.slice(); user = zero(); moves = 0; done = false;
+    $("#lMsg").textContent = ""; render();
+  }
+  function minMoves() { var c = 0, k; for (k = 0; k < N * N; k++) { c += gen[k] ^ user[k]; } return c; }
+  function render() {
+    var W = Math.min(contentWidth(), 360), gap = 6, s = Math.floor((W - gap * N) / N), h = "", k;
+    for (k = 0; k < N * N; k++) { h += '<button data-i="' + k + '" class="' + (cells[k] ? "on" : "") + '" style="width:' + s + "px;height:" + s + "px;margin:0 " + gap / 2 + "px " + gap + 'px" aria-label="Feld ' + (k + 1) + (cells[k] ? " an" : " aus") + '"></button>'; }
+    $("#lg").style.width = (s + gap) * N + "px"; $("#lg").innerHTML = h;
+    $("#lLevel").textContent = level; $("#lMoves").textContent = moves; $("#lMin").textContent = done ? "–" : minMoves();
+    $("#lNext").textContent = done ? "Nächstes Level" : "Neu";
+  }
+  function press(i) {
+    if (done) { return; }
+    toggle(cells, i); user[i] ^= 1; moves++;
+    if (!lit(cells)) {
+      done = true; level++; store.set("lights.level", level);
+      $("#lMsg").textContent = "Alle Lichter aus – geschafft in " + moves + (moves === 1 ? " Zug!" : " Zügen!");
+    }
+    render();
+  }
+  $("#lg").onclick = function (e) { var b = closest(e.target, "button"); if (b) { press(parseInt(b.getAttribute("data-i"), 10)); } };
+  $("#lNext").onclick = newPuzzle;
+  $("#lReset").onclick = function () { if (done) { return; } cells = start.slice(); user = zero(); moves = 0; $("#lMsg").textContent = ""; render(); };
+  $("#lTip").onclick = function () {
+    if (done) { return; }
+    for (var k = 0; k < N * N; k++) {
+      if (gen[k] ^ user[k]) { var b = $$("#lg button")[k]; b.className += " tip"; setTimeout(function () { render(); }, 1600); return; }
+    }
+  };
+  window.onresize = render;
+  newPuzzle();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Code knacken · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#kRows { -ms-user-select: none; user-select: none; }
+.krow { display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; padding: 6px 8px; border-radius: 12px; margin-bottom: 4px; }
+.krow .no { width: 24px; font-size: 13px; text-align: right; margin-right: 10px; -ms-flex: 0 0 24px; flex: 0 0 24px; }
+.peg { display: inline-block; width: 36px; height: 36px; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 36px; font-weight: 700; font-size: 15px; cursor: pointer; vertical-align: middle; }
+.fb { margin-left: auto; width: 34px; font-size: 0; -ms-flex: 0 0 34px; flex: 0 0 34px; }
+.fb i { display: inline-block; width: 13px; height: 13px; border-radius: 50%; margin: 2px; }
+#kPal { font-size: 0; text-align: center; margin: 8px 0; }
+#kPal button { width: 46px; height: 46px; border-radius: 50%; border: 0; margin: 0 4px 8px; cursor: pointer; font-weight: 700; font-size: 16px; padding: 0; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Code knacken</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="kOpt"><button id="kRep">Farben doppelt erlaubt</button></div>
+<div class="stats"><div><b id="kTry">1/10</b><span>Versuch</span></div><div><b id="kWins">0</b><span>Geknackt</span></div><div><b id="kBest">–</b><span>Wenigste Züge</span></div></div>
+<div id="kRows"></div>
+<div id="kPal"></div>
+<p class="center" id="kMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl"><button id="kDel" class="tonal">Löschen</button><button id="kCheck" class="ac">Prüfen</button><button id="kNew" class="tonal">Neu</button></div>
+<p class="muted" style="font-size:14px">Der Computer denkt sich einen Code aus vier Farben aus. Tippe Farben an, um eine Reihe zu füllen, und dann auf Prüfen. Ein <b>voller Punkt</b> heißt: richtige Farbe an richtiger Stelle. Ein <b>Ring</b>: richtige Farbe, aber an anderer Stelle. Eine Farbe in der Reihe antippen entfernt sie wieder.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var COLS = ["#e0483e", "#3a6fe0", "#43b047", "#e8c21a", "#8e5bd1", "#ee7a22"], NAMES = ["Rot", "Blau", "Grün", "Gelb", "Lila", "Orange"];
+  var L = 4, TRIES = 10;
+  var rep = store.get("code.rep", false), st = store.get("code.stats", { wins: 0, best: 0 });
+  var secret, rows, cur, over;
+
+  themeCss(function (th) {
+    return ".krow.cur{background:" + th.acs + "}.peg.empty{box-shadow:inset 0 0 0 2px " + th.bd + ";background:" + th.sf2 + "}" +
+      ".fb i{background:" + th.bd + ";-ms-transform:scale(.55);transform:scale(.55)}.fb i.bl{background:" + th.tx + ";-ms-transform:none;transform:none}" +
+      ".fb i.wh{background:none;box-shadow:inset 0 0 0 3px " + th.tx + ";-ms-transform:none;transform:none}";
+  });
+  function txtCol(i) { return i === 3 ? "#111111" : "#ffffff"; }
+  function peg(v, attr) {
+    if (v == null) { return '<span class="peg empty"' + (attr || "") + "></span>"; }
+    return '<span class="peg" style="background:' + COLS[v] + ";color:" + txtCol(v) + '"' + (attr || "") + ' title="' + NAMES[v] + '">' + (v + 1) + "</span>";
+  }
+  function newGame() {
+    var pool = [0, 1, 2, 3, 4, 5], k;
+    secret = [];
+    if (rep) { for (k = 0; k < L; k++) { secret.push(rnd(6)); } }
+    else { shuffle(pool); secret = pool.slice(0, L); }
+    rows = []; cur = [null, null, null, null]; over = false;
+    $("#kMsg").textContent = "";
+    render();
+  }
+  function feedback(g) {
+    var bl = 0, wh = 0, cs = [0, 0, 0, 0, 0, 0], cg = [0, 0, 0, 0, 0, 0], k;
+    for (k = 0; k < L; k++) { if (g[k] === secret[k]) { bl++; } else { cs[secret[k]]++; cg[g[k]]++; } }
+    for (k = 0; k < 6; k++) { wh += Math.min(cs[k], cg[k]); }
+    return { bl: bl, wh: wh };
+  }
+  function fbHtml(f) {
+    var h = '<span class="fb">', k;
+    for (k = 0; k < L; k++) { h += '<i class="' + (k < f.bl ? "bl" : k < f.bl + f.wh ? "wh" : "") + '"></i>'; }
+    return h + "</span>";
+  }
+  function render() {
+    var h = "", r, k, n = rows.length;
+    for (r = 0; r < TRIES; r++) {
+      h += '<div class="krow' + (r === n && !over ? " cur" : "") + '"><span class="no muted">' + (r + 1) + "</span>";
+      for (k = 0; k < L; k++) {
+        if (r < n) { h += peg(rows[r].g[k]); }
+        else if (r === n && !over) { h += peg(cur[k], ' data-k="' + k + '"'); }
+        else { h += peg(null); }
+      }
+      h += r < n ? fbHtml(rows[r].f) : '<span class="fb"></span>';
+      h += "</div>";
+    }
+    if (over) {
+      h += '<div class="krow cur"><span class="no muted">✓</span>';
+      for (k = 0; k < L; k++) { h += peg(secret[k]); }
+      h += '<span class="fb"></span></div>';
+    }
+    $("#kRows").innerHTML = h;
+    $("#kTry").textContent = Math.min(n + 1, TRIES) + "/" + TRIES;
+    $("#kWins").textContent = st.wins;
+    $("#kBest").textContent = st.best || "–";
+    $("#kRep").setAttribute("aria-pressed", rep ? "true" : "false");
+    $("#kCheck").disabled = over || cur.indexOf(null) >= 0;
+  }
+  function pal() {
+    var h = "", k;
+    for (k = 0; k < 6; k++) { h += '<button data-c="' + k + '" style="background:' + COLS[k] + ";color:" + txtCol(k) + '" aria-label="' + NAMES[k] + '">' + (k + 1) + "</button>"; }
+    $("#kPal").innerHTML = h;
+  }
+  function add(c) {
+    if (over) { return; }
+    var k = cur.indexOf(null);
+    if (k < 0) { toast("Reihe ist voll – tippe auf Prüfen"); return; }
+    if (!rep && cur.indexOf(c) >= 0) { toast("Ohne Doppelte kommt jede Farbe nur einmal vor"); return; }
+    cur[k] = c; render();
+  }
+  function check() {
+    if (over || cur.indexOf(null) >= 0) { return; }
+    var f = feedback(cur);
+    rows.push({ g: cur.slice(), f: f }); cur = [null, null, null, null];
+    if (f.bl === L) {
+      over = true; st.wins++; if (!st.best || rows.length < st.best) { st.best = rows.length; }
+      store.set("code.stats", st);
+      $("#kMsg").textContent = "Geknackt in " + rows.length + (rows.length === 1 ? " Zug!" : " Zügen!");
+    } else if (rows.length >= TRIES) {
+      over = true; $("#kMsg").textContent = "Leider nicht geknackt – so lautete der Code:";
+    }
+    render();
+  }
+  $("#kPal").onclick = function (e) { var bt = closest(e.target, "button"); if (bt) { add(parseInt(bt.getAttribute("data-c"), 10)); } };
+  $("#kRows").onclick = function (e) {
+    var p = closest(e.target, ".peg"); if (!p || over || !p.getAttribute("data-k")) { return; }
+    cur[parseInt(p.getAttribute("data-k"), 10)] = null; render();
+  };
+  $("#kDel").onclick = function () {
+    for (var k = L - 1; k >= 0; k--) { if (cur[k] != null) { cur[k] = null; break; } }
+    render();
+  };
+  $("#kCheck").onclick = check;
+  $("#kNew").onclick = newGame;
+  $("#kRep").onclick = function () { rep = !rep; store.set("code.rep", rep); newGame(); toast(rep ? "Farben können mehrfach vorkommen" : "Jede Farbe kommt höchstens einmal vor"); };
+  document.addEventListener("keydown", function (e) {
+    if (e.keyCode >= 49 && e.keyCode <= 54) { add(e.keyCode - 49); }
+    else if (e.keyCode === 13) { check(); }
+    else if (e.keyCode === 8) { e.preventDefault(); $("#kDel").onclick(); }
+  }, false);
+  pal(); newGame();
+})();
+</script>
+</body>
+</html>

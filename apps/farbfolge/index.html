@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Farbfolge · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#sPads { font-size: 0; margin: 0 auto 12px; -ms-user-select: none; user-select: none; }
+#sPads button { display: inline-block; vertical-align: top; width: 48%; margin: 0 1% 2%; border: 0; cursor: pointer; padding: 0; font-size: 28px; font-weight: 700; color: rgba(0,0,0,.35); -ms-transition: opacity .08s; transition: opacity .08s; }
+#sPads button.dim { opacity: .38; }
+#sPads button.lit { opacity: 1; box-shadow: 0 0 0 4px #ffffff inset; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Farbfolge</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="sOpt"><button data-s="0">Normal</button><button data-s="1">Schnell</button><button id="sSnd">Ton</button></div>
+<div class="stats"><div><b id="sLen">0</b><span>Folge</span></div><div><b id="sBest">0</b><span>Rekord</span></div></div>
+<div id="sPads"><button data-i="0" style="background:#43b047">1</button><button data-i="1" style="background:#e0483e">2</button><button data-i="2" style="background:#e8c21a">3</button><button data-i="3" style="background:#3a6fe0">4</button></div>
+<p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600">Tippe auf Start</p>
+<div class="ctl c2"><button id="sStart" class="ac">Start</button><button id="sReplay" class="tonal">Nochmal zeigen</button></div>
+<p class="muted" style="font-size:14px">Merke dir, in welcher Reihenfolge die Felder aufleuchten, und tippe sie danach genauso an. Jede Runde kommt ein Feld dazu. „Nochmal zeigen“ geht einmal pro Spiel. Tastatur: 1 bis 4. Den Ton gibt es nur in Browsern mit Web Audio (nicht im Internet Explorer).</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var FREQ = [392, 330, 262, 196];
+  var fast = store.get("simon.fast", 0), snd = store.get("simon.snd", true), best = store.get("simon.best", [0, 0]);
+  var seq = [], pos = 0, phase = "idle", timers = [], replayed = false, pads = $$("#sPads button"), ac = null;
+
+  function hud() {
+    var bs = $$("#sOpt button[data-s]"), i;
+    for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-s") === fast ? "true" : "false"); }
+    $("#sSnd").setAttribute("aria-pressed", snd ? "true" : "false");
+    $("#sLen").textContent = seq.length; $("#sBest").textContent = best[fast];
+    $("#sReplay").disabled = phase !== "input" || replayed;
+    $("#sStart").textContent = phase === "idle" || phase === "over" ? "Start" : "Neu";
+  }
+  function size() {
+    var W = Math.min(contentWidth(), 360), s = Math.floor(W * 0.48), i;
+    $("#sPads").style.width = W + "px";
+    for (i = 0; i < pads.length; i++) { pads[i].style.height = s + "px"; pads[i].style.borderRadius = (i === 0 ? "60% 12px 12px 12px" : i === 1 ? "12px 60% 12px 12px" : i === 2 ? "12px 12px 12px 60%" : "12px 12px 60% 12px"); }
+  }
+  function tone(i, ms) {
+    if (!snd) { return; }
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) { return; }
+      ac = ac || new AC();
+      var o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime;
+      o.type = "triangle"; o.frequency.value = FREQ[i]; o.connect(g); g.connect(ac.destination);
+      g.gain.setValueAtTime(0.2, t0); g.gain.setValueAtTime(0, t0 + ms / 1000);
+      o.start(t0); o.stop(t0 + ms / 1000 + 0.02);
+    } catch (e) {}
+  }
+  function light(i, ms) {
+    var k;
+    for (k = 0; k < pads.length; k++) { pads[k].className = k === i ? "lit" : "dim"; }
+    tone(i, ms);
+    timers.push(setTimeout(function () { for (k = 0; k < pads.length; k++) { pads[k].className = phase === "input" ? "" : "dim"; } }, ms));
+  }
+  function clearTimers() { while (timers.length) { clearTimeout(timers.pop()); } }
+  function speed() { var base = fast ? 380 : 560; return Math.max(fast ? 170 : 240, base - seq.length * 18); }
+  function show() {
+    var k, on = speed(), gap = Math.round(on * 0.45);
+    phase = "show"; pos = 0; hud(); clearTimers();
+    $("#sMsg").textContent = "Gut aufpassen …";
+    for (k = 0; k < pads.length; k++) { pads[k].className = "dim"; }
+    for (k = 0; k < seq.length; k++) {
+      (function (k) { timers.push(setTimeout(function () { light(seq[k], on); }, 600 + k * (on + gap))); })(k);
+    }
+    timers.push(setTimeout(function () {
+      phase = "input"; hud();
+      for (var j = 0; j < pads.length; j++) { pads[j].className = ""; }
+      $("#sMsg").textContent = "Du bist dran";
+    }, 600 + seq.length * (on + gap)));
+  }
+  function next() { seq.push(rnd(4)); show(); }
+  function start() { clearTimers(); seq = []; replayed = false; next(); }
+  function press(i) {
+    if (phase !== "input") { return; }
+    light(i, 180);
+    if (seq[pos] !== i) {
+      phase = "over"; clearTimers();
+      var reached = seq.length - 1;
+      if (reached > best[fast]) { best[fast] = reached; store.set("simon.best", best); }
+      $("#sMsg").textContent = "Falsch! Du hast " + reached + (reached === 1 ? " Feld" : " Felder") + " geschafft.";
+      for (var k = 0; k < pads.length; k++) { pads[k].className = k === seq[pos] ? "lit" : "dim"; }
+      hud(); return;
+    }
+    pos++;
+    if (pos === seq.length) {
+      phase = "wait"; hud();
+      if (seq.length > best[fast]) { best[fast] = seq.length; store.set("simon.best", best); }
+      $("#sMsg").textContent = "Richtig!";
+      timers.push(setTimeout(next, 700));
+    }
+  }
+  for (var i = 0; i < pads.length; i++) { (function (b) { onPress(b, function () { press(parseInt(b.getAttribute("data-i"), 10)); }); })(pads[i]); }
+  $("#sStart").onclick = start;
+  $("#sReplay").onclick = function () { if (phase === "input" && !replayed) { replayed = true; show(); } };
+  $("#sOpt").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    if (b.id === "sSnd") { snd = !snd; store.set("simon.snd", snd); }
+    else { fast = parseInt(b.getAttribute("data-s"), 10); store.set("simon.fast", fast); clearTimers(); phase = "idle"; seq = []; $("#sMsg").textContent = "Tippe auf Start"; for (var k = 0; k < pads.length; k++) { pads[k].className = ""; } }
+    hud();
+  };
+  document.addEventListener("keydown", function (e) { if (e.keyCode >= 49 && e.keyCode <= 52) { press(e.keyCode - 49); } }, false);
+  window.onresize = size;
+  size(); hud();
+})();
+</script>
+</body>
+</html>

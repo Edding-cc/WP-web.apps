@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Laufschrift · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#lsOv { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 80; overflow: hidden; cursor: pointer; display: none; }
+#lsOv.show { display: block; }
+#lsTx { position: absolute; left: 0; white-space: nowrap; font-weight: 700; }
+#lsOv.blink #lsTx { -ms-animation: blink 1s steps(2, start) infinite; animation: blink 1s steps(2, start) infinite; }
+@-ms-keyframes blink { to { visibility: hidden; } }
+@keyframes blink { to { visibility: hidden; } }
+#lsPrev { border-radius: 12px; padding: 14px; text-align: center; font-weight: 700; font-size: 22px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cpair { display: inline-block; width: 44px; height: 44px; border-radius: 12px; margin: 0 8px 8px 0; cursor: pointer; font-weight: 700; font-size: 18px; padding: 0; vertical-align: top; border: 2px solid transparent; }
+.cpair[aria-pressed="true"] { outline: 3px solid #888; outline-offset: 2px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Laufschrift</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="card">
+  <label class="fld" for="lsText" style="margin-top:0">Text</label>
+  <input type="text" id="lsText" maxlength="200">
+  <label class="fld">Farben</label>
+  <div id="lsCols" style="font-size:0"></div>
+  <label class="fld">Größe</label>
+  <div class="chips" id="lsSize"><button data-v="35">Klein</button><button data-v="55">Mittel</button><button data-v="75">Groß</button><button data-v="92">Riesig</button></div>
+  <label class="fld">Bewegung</label>
+  <div class="chips" id="lsMode"><button data-v="left">Nach links</button><button data-v="right">Nach rechts</button><button data-v="still">Stehend</button><button id="lsBlink">Blinken</button></div>
+  <label class="fld" for="lsSpeed">Tempo</label>
+  <input type="range" id="lsSpeed" min="1" max="10" step="1">
+  <label class="fld">Vorschau</label>
+  <div id="lsPrev"></div>
+</div>
+<div class="ctl c2"><button id="lsGo" class="ac">Anzeigen</button><button id="lsTips" class="tonal">Vorlagen</button></div>
+<div class="chips" id="lsTpl" hidden><button>Hallo!</button><button>Herzlichen Glückwunsch!</button><button>Bitte nicht stören</button><button>Taxi</button><button>Willkommen</button><button>Zugabe!</button></div>
+<p class="muted" style="font-size:14px">Dreh das Telefon quer, um mehr Platz zu haben. Antippen beendet die Anzeige. Der Bildschirm kann sich nach einiger Zeit abschalten, weil der Browser des Windows Phones ihn nicht wach halten kann.</p>
+</main>
+<div id="lsOv"><span id="lsTx"></span></div>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var PAIRS = [["#ffffff", "#000000"], ["#ffd400", "#000000"], ["#ff3b30", "#000000"], ["#34c759", "#000000"], ["#00c8ff", "#000000"], ["#ff4fb0", "#000000"], ["#000000", "#ffffff"], ["#ffffff", "#c0362c"], ["#ffffff", "#1f3a5f"], ["#000000", "#ffd400"]];
+  var cfg = assign({ text: "Hallo!", pair: 1, size: 75, mode: "left", blink: false, speed: 5 }, store.get("banner", {}));
+  var raf = window.requestAnimationFrame || window.msRequestAnimationFrame || function (f) { return setTimeout(function () { f(+new Date()); }, 16); };
+  var ov = $("#lsOv"), tx = $("#lsTx"), running = false, x = 0, tw = 0, last = 0, fs = 0;
+
+  function save() { store.set("banner", cfg); }
+  function ui() {
+    var h = "", k, bs;
+    for (k = 0; k < PAIRS.length; k++) { h += '<button class="cpair" data-i="' + k + '" style="color:' + PAIRS[k][0] + ";background:" + PAIRS[k][1] + ";border-color:" + PAIRS[k][0] + '" aria-pressed="' + (k === cfg.pair ? "true" : "false") + '" aria-label="Farbkombination ' + (k + 1) + '">A</button>'; }
+    $("#lsCols").innerHTML = h;
+    bs = $$("#lsSize button"); for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", +bs[k].getAttribute("data-v") === cfg.size ? "true" : "false"); }
+    bs = $$("#lsMode button[data-v]"); for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", bs[k].getAttribute("data-v") === cfg.mode ? "true" : "false"); }
+    $("#lsBlink").setAttribute("aria-pressed", cfg.blink ? "true" : "false");
+    $("#lsSpeed").value = cfg.speed; $("#lsSpeed").disabled = cfg.mode === "still";
+    var p = $("#lsPrev"); p.textContent = cfg.text || " "; p.style.color = PAIRS[cfg.pair][0]; p.style.background = PAIRS[cfg.pair][1];
+  }
+  function layout() {
+    var vw = window.innerWidth || document.documentElement.clientWidth, vh = window.innerHeight || document.documentElement.clientHeight;
+    fs = Math.max(24, Math.round(vh * cfg.size / 100));
+    tx.style.fontSize = fs + "px"; tx.style.lineHeight = fs + "px"; tx.style.top = Math.round((vh - fs) / 2) + "px";
+    tw = tx.offsetWidth;
+    if (cfg.mode === "still") {
+      /* stehender Text: so verkleinern, dass er in die Breite passt */
+      if (tw > vw * 0.94) { fs = Math.max(16, Math.floor(fs * vw * 0.94 / tw)); tx.style.fontSize = fs + "px"; tx.style.lineHeight = fs + "px"; tx.style.top = Math.round((vh - fs) / 2) + "px"; tw = tx.offsetWidth; }
+      x = Math.round((vw - tw) / 2); place();
+    }
+    return vw;
+  }
+  function place() { var tr = "translate(" + Math.round(x) + "px,0)"; tx.style.transform = tr; tx.style.msTransform = tr; tx.style.webkitTransform = tr; }
+  function frame(t) {
+    if (!running) { return; }
+    var vw = window.innerWidth || document.documentElement.clientWidth, dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016, v = fs * (0.25 + cfg.speed * 0.22);
+    last = t;
+    if (cfg.mode === "left") { x -= v * dt; if (x < -tw) { x = vw; } }
+    else if (cfg.mode === "right") { x += v * dt; if (x > vw) { x = -tw; } }
+    place(); raf(frame);
+  }
+  function show() {
+    var el = document.documentElement, vw;
+    tx.textContent = cfg.text || " ";
+    ov.style.background = PAIRS[cfg.pair][1]; tx.style.color = PAIRS[cfg.pair][0];
+    ov.className = "show" + (cfg.blink ? " blink" : "");
+    try { if (el.requestFullscreen) { el.requestFullscreen(); } else if (el.msRequestFullscreen) { el.msRequestFullscreen(); } else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); } } catch (e) {}
+    vw = layout();
+    if (cfg.mode === "left") { x = vw; } else if (cfg.mode === "right") { x = -tw; }
+    place();
+    running = cfg.mode !== "still"; last = 0;
+    if (running) { raf(frame); }
+  }
+  function hide() {
+    running = false; ov.className = "";
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) { document.exitFullscreen(); }
+      else if (document.msFullscreenElement && document.msExitFullscreen) { document.msExitFullscreen(); }
+      else if (document.webkitFullscreenElement && document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+    } catch (e) {}
+  }
+  $("#lsText").value = cfg.text;
+  $("#lsText").oninput = function () { cfg.text = this.value; save(); ui(); };
+  $("#lsCols").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.pair = parseInt(b.getAttribute("data-i"), 10); save(); ui(); } };
+  $("#lsSize").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.size = parseInt(b.getAttribute("data-v"), 10); save(); ui(); } };
+  $("#lsMode").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    if (b.id === "lsBlink") { cfg.blink = !cfg.blink; } else { cfg.mode = b.getAttribute("data-v"); }
+    save(); ui();
+  };
+  $("#lsSpeed").onchange = $("#lsSpeed").oninput = function () { cfg.speed = parseInt(this.value, 10) || 5; save(); };
+  $("#lsGo").onclick = show;
+  $("#lsTips").onclick = function () { $("#lsTpl").hidden = !$("#lsTpl").hidden; };
+  $("#lsTpl").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.text = b.textContent; $("#lsText").value = cfg.text; save(); ui(); } };
+  ov.onclick = hide;
+  document.addEventListener("keydown", function (e) { if (e.keyCode === 27 && ov.className) { hide(); } }, false);
+  window.onresize = function () { if (ov.className) { var vw = layout(); if (cfg.mode !== "still" && (x > vw || x < -tw)) { x = cfg.mode === "left" ? vw : -tw; } } };
+  ui();
+})();
+</script>
+</body>
+</html>

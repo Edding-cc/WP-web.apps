@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Zeichenblock · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#cv { display: block; border-radius: 12px; background: #fff; -ms-touch-action: none; touch-action: none; cursor: crosshair; }
+#zCols { font-size: 0; margin-bottom: 4px; }
+#zCols .sw { width: 36px; height: 36px; margin: 0 8px 8px 0; }
+#zOut { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 70; background: rgba(0,0,0,.85); padding: 16px; overflow: auto; text-align: center; color: #fff; }
+#zOut img { max-width: 100%; border-radius: 8px; background: #fff; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Zeichenblock</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div id="zCols"></div>
+<div class="chips" id="zSize"><button data-s="2">Fein</button><button data-s="5">Mittel</button><button data-s="10">Dick</button><button data-s="22">Marker</button><button id="zErase">Radierer</button></div>
+<div class="board" id="zBoard"><canvas id="cv"></canvas></div>
+<div class="ctl"><button id="zUndo" class="tonal">Rückgängig</button><button id="zClear" class="tonal">Leeren</button><button id="zImg" class="ac">Als Bild</button></div>
+<p class="muted" style="font-size:14px">Male mit dem Finger. Die Zeichnung wird automatisch in diesem Browser gespeichert. „Als Bild“ zeigt sie als PNG an – je nach Browser lässt sie sich dann durch langes Drücken speichern oder teilen.</p>
+</main>
+<div id="zOut" hidden><p id="zOutHint" style="margin:0 0 12px">Lange auf das Bild drücken, um es zu speichern (wenn der Browser das anbietet). Antippen außerhalb schließt.</p><img id="zPng" alt="Zeichnung"><p><button class="btn" id="zClose">Schließen</button></p></div>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var COLORS = ["#111111", "#ffffff", "#e0483e", "#ee7a22", "#f4c430", "#43b047", "#29a0c6", "#3a6fe0", "#8e5bd1", "#d14f9c", "#795548", "#9e9e9e"];
+  /* Striche in Einheiten von 1/1000 der Breite, damit sie bei anderer Bildschirmgröße passen */
+  var S = 1000, RATIO = 1.25, MAXPTS = 60000;
+  var cv = $("#cv"), ctx = cv.getContext("2d"), W = 0, H = 0;
+  var cfg = assign({ c: "#111111", s: 5, erase: false }, store.get("draw.cfg", {}));
+  var strokes = store.get("draw.strokes", []), cur = null, saveT = 0;
+
+  function chips() {
+    var h = "", k, bs;
+    for (k = 0; k < COLORS.length; k++) { h += '<button class="sw" data-c="' + COLORS[k] + '" style="background:' + COLORS[k] + '" aria-pressed="' + (!cfg.erase && cfg.c === COLORS[k] ? "true" : "false") + '" aria-label="Farbe ' + COLORS[k] + '"></button>'; }
+    $("#zCols").innerHTML = h;
+    bs = $$("#zSize button[data-s]");
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", +bs[k].getAttribute("data-s") === cfg.s ? "true" : "false"); }
+    $("#zErase").setAttribute("aria-pressed", cfg.erase ? "true" : "false");
+    store.set("draw.cfg", cfg);
+  }
+  function size() {
+    var r = window.devicePixelRatio || 1;
+    W = contentWidth(); H = Math.round(W * RATIO);
+    cv.style.width = W + "px"; cv.style.height = H + "px"; $("#zBoard").style.width = W + "px";
+    cv.width = Math.round(W * r); cv.height = Math.round(H * r);
+    ctx.setTransform(r, 0, 0, r, 0, 0);
+    redraw();
+  }
+  function drawStroke(st, from) {
+    var p = st.p, f = W / S, k;
+    ctx.strokeStyle = st.c; ctx.fillStyle = st.c; ctx.lineWidth = st.w * f; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    if (p.length === 2) { ctx.beginPath(); ctx.arc(p[0] * f, p[1] * f, st.w * f / 2, 0, Math.PI * 2); ctx.fill(); return; }
+    from = Math.max(0, from || 0);
+    ctx.beginPath(); ctx.moveTo(p[from] * f, p[from + 1] * f);
+    for (k = from + 2; k < p.length; k += 2) { ctx.lineTo(p[k] * f, p[k + 1] * f); }
+    ctx.stroke();
+  }
+  function redraw() {
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+    for (var k = 0; k < strokes.length; k++) { drawStroke(strokes[k], 0); }
+  }
+  function pt(e) { var rc = cv.getBoundingClientRect(); return [Math.round((e.clientX - rc.left) / W * S), Math.round((e.clientY - rc.top) / W * S)]; }
+  function begin(e) {
+    var p = pt(e);
+    cur = { c: cfg.erase ? "#ffffff" : cfg.c, w: cfg.erase ? cfg.s * 2.5 + 8 : cfg.s, p: [p[0], p[1]] };
+    strokes.push(cur); drawStroke(cur, 0);
+  }
+  function extend(e) {
+    if (!cur) { return; }
+    var p = pt(e), n = cur.p.length, dx = p[0] - cur.p[n - 2], dy = p[1] - cur.p[n - 1];
+    if (dx * dx + dy * dy < 9) { return; }
+    cur.p.push(p[0], p[1]); drawStroke(cur, n - 2);
+  }
+  function end() {
+    if (!cur) { return; }
+    cur = null; clearTimeout(saveT); saveT = setTimeout(save, 400);
+  }
+  function save() {
+    var n = 0, k;
+    for (k = 0; k < strokes.length; k++) { n += strokes[k].p.length; }
+    if (n > MAXPTS) { toast("Zeichnung zu groß zum automatischen Speichern"); return; }
+    try { window.localStorage.setItem("wp.draw.strokes", JSON.stringify(strokes)); } catch (e) { toast("Speichern nicht möglich (Speicher voll?)"); }
+  }
+  if (window.PointerEvent || window.MSPointerEvent) {
+    var P = window.PointerEvent ? ["pointerdown", "pointermove", "pointerup", "pointercancel"] : ["MSPointerDown", "MSPointerMove", "MSPointerUp", "MSPointerCancel"];
+    cv.addEventListener(P[0], function (e) { e.preventDefault(); if (cv.setPointerCapture) { try { cv.setPointerCapture(e.pointerId); } catch (x) {} } else if (cv.msSetPointerCapture) { try { cv.msSetPointerCapture(e.pointerId); } catch (x2) {} } begin(e); }, false);
+    cv.addEventListener(P[1], function (e) { if (cur) { e.preventDefault(); extend(e); } }, false);
+    document.addEventListener(P[2], end, false);
+    document.addEventListener(P[3], end, false);
+  } else {
+    cv.addEventListener("touchstart", function (e) { e.preventDefault(); begin(e.touches[0]); }, false);
+    cv.addEventListener("touchmove", function (e) { e.preventDefault(); extend(e.touches[0]); }, false);
+    document.addEventListener("touchend", end, false);
+    cv.addEventListener("mousedown", function (e) { begin(e); }, false);
+    document.addEventListener("mousemove", function (e) { extend(e); }, false);
+    document.addEventListener("mouseup", end, false);
+  }
+  $("#zCols").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.c = b.getAttribute("data-c"); cfg.erase = false; chips(); } };
+  $("#zSize").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    if (b.id === "zErase") { cfg.erase = !cfg.erase; } else { cfg.s = parseInt(b.getAttribute("data-s"), 10); }
+    chips();
+  };
+  $("#zUndo").onclick = function () { if (strokes.length) { strokes.pop(); redraw(); save(); } };
+  $("#zClear").onclick = function () { if (strokes.length && confirm("Zeichnung wirklich leeren?")) { strokes = []; redraw(); save(); } };
+  $("#zImg").onclick = function () {
+    try { $("#zPng").src = cv.toDataURL("image/png"); $("#zOut").hidden = false; } catch (e) { toast("Bild konnte nicht erzeugt werden"); }
+  };
+  $("#zOut").onclick = function (e) { if (e.target.id !== "zPng") { $("#zOut").hidden = true; } };
+  chips();
+  window.onresize = size;
+  size();
+})();
+</script>
+</body>
+</html>
