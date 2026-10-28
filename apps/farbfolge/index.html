@@ -24,7 +24,7 @@
 <div id="sPads"><button data-i="0" style="background:#43b047">1</button><button data-i="1" style="background:#e0483e">2</button><button data-i="2" style="background:#e8c21a">3</button><button data-i="3" style="background:#3a6fe0">4</button></div>
 <p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600">Tippe auf Start</p>
 <div class="ctl c2"><button id="sStart" class="ac">Start</button><button id="sReplay" class="tonal">Nochmal zeigen</button></div>
-<p class="muted" style="font-size:14px">Merke dir, in welcher Reihenfolge die Felder aufleuchten, und tippe sie danach genauso an. Jede Runde kommt ein Feld dazu. „Nochmal zeigen“ geht einmal pro Spiel. Tastatur: 1 bis 4. Den Ton gibt es nur in Browsern mit Web Audio (nicht im Internet Explorer).</p>
+<p class="muted help" style="font-size:14px">Merke dir, in welcher Reihenfolge die Felder aufleuchten, und tippe sie danach genauso an. Jede Runde kommt ein Feld dazu. „Nochmal zeigen“ geht einmal pro Spiel. Tastatur: 1 bis 4. Den Ton gibt es nur in Browsern mit Web Audio (nicht im Internet Explorer).</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -44,7 +44,7 @@
     $("#sStart").textContent = phase === "idle" || phase === "over" ? "Start" : "Neu";
   }
   function size() {
-    var W = Math.min(contentWidth(), 360), s = Math.floor(W * 0.48), i;
+    var W = fitWidth(360, 1, $("#sPads")), s = Math.floor(W * 0.48), i;
     $("#sPads").style.width = W + "px";
     for (i = 0; i < pads.length; i++) { pads[i].style.height = s + "px"; pads[i].style.borderRadius = (i === 0 ? "60% 12px 12px 12px" : i === 1 ? "12px 60% 12px 12px" : i === 2 ? "12px 12px 12px 60%" : "12px 12px 60% 12px"); }
   }

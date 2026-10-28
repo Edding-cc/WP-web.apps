@@ -21,7 +21,7 @@
 <div class="board" id="cBoard"><canvas id="cv"></canvas></div>
 <p class="center" id="cMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c2"><button id="cNew" class="ac">Neue Runde</button><button id="cReset" class="tonal">Stand löschen</button></div>
-<p class="muted" style="font-size:14px">Tippe auf eine Spalte, um einen Stein einzuwerfen. Wer zuerst vier Steine waagerecht, senkrecht oder schräg in eine Reihe bringt, gewinnt. Tastatur: 1 bis 7.</p>
+<p class="muted help" style="font-size:14px">Tippe auf eine Spalte, um einen Stein einzuwerfen. Wer zuerst vier Steine waagerecht, senkrecht oder schräg in eine Reihe bringt, gewinnt. Tastatur: 1 bis 7.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -93,7 +93,7 @@
   }
 
   function size() {
-    var W = Math.min(contentWidth(), 420), r = window.devicePixelRatio || 1;
+    var W = fitWidth(420, R / C, $("#cBoard")), r = window.devicePixelRatio || 1;
     cs = W / C;
     cv.style.width = W + "px"; cv.style.height = cs * R + "px"; $("#cBoard").style.width = W + "px";
     cv.width = Math.round(W * r); cv.height = Math.round(cs * R * r);

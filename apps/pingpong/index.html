@@ -19,7 +19,7 @@
 <div class="chips" id="pMode"><button data-m="easy">Computer leicht</button><button data-m="hard">Computer schwer</button><button data-m="two">2 Spieler</button></div>
 <div class="board" id="pBoard"><canvas id="cv"></canvas></div>
 <div class="ctl c2"><button id="pGo" class="ac">Start</button><button id="pReset" class="tonal">Neues Spiel</button></div>
-<p class="muted" style="font-size:14px">Schiebe deinen Schläger (unten) mit dem Finger. Zu zweit legt ihr das Telefon zwischen euch, jeder steuert seine Hälfte – mehrere Finger gleichzeitig gehen. Wer zuerst 7 Punkte hat, gewinnt. Tastatur: Pfeiltasten (unten), A/D (oben).</p>
+<p class="muted help" style="font-size:14px">Schiebe deinen Schläger (unten) mit dem Finger. Zu zweit legt ihr das Telefon zwischen euch, jeder steuert seine Hälfte – mehrere Finger gleichzeitig gehen. Wer zuerst 7 Punkte hat, gewinnt. Tastatur: Pfeiltasten (unten), A/D (oben).</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -107,7 +107,7 @@
   }
   function chips() { var bs = $$("#pMode button"); for (var k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", bs[k].getAttribute("data-m") === mode ? "true" : "false"); } }
   function size() {
-    var W = Math.min(contentWidth(), 400), r = window.devicePixelRatio || 1;
+    var W = fitWidth(400, WH / WW, $("#pBoard")), r = window.devicePixelRatio || 1;
     sc = W / WW;
     cv.style.width = W + "px"; cv.style.height = Math.round(WH * sc) + "px"; $("#pBoard").style.width = W + "px";
     cv.width = Math.round(W * r); cv.height = Math.round(WH * sc * r);

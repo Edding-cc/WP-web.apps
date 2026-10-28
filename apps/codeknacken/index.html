@@ -11,10 +11,17 @@
 #kRows { -ms-user-select: none; user-select: none; }
 .krow { display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; padding: 6px 8px; border-radius: 12px; margin-bottom: 4px; }
 .krow .no { width: 24px; font-size: 13px; text-align: right; margin-right: 10px; -ms-flex: 0 0 24px; flex: 0 0 24px; }
-.peg { display: inline-block; width: 36px; height: 36px; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 36px; font-weight: 700; font-size: 15px; cursor: pointer; vertical-align: middle; }
+.peg { position: relative; display: inline-block; width: 36px; height: 36px; border-radius: 50%; margin-right: 8px; text-align: center; line-height: 36px; font-weight: 700; font-size: 15px; cursor: pointer; vertical-align: middle; }
 .fb { margin-left: auto; width: 34px; font-size: 0; -ms-flex: 0 0 34px; flex: 0 0 34px; }
 .fb i { display: inline-block; width: 13px; height: 13px; border-radius: 50%; margin: 2px; }
 #kPal { font-size: 0; text-align: center; margin: 8px 0; }
+.peg.mx:after, .peg.mc:after { position: absolute; right: -5px; top: -5px; width: 17px; height: 17px; line-height: 17px; border-radius: 50%; font-size: 11px; color: #fff; text-align: center; }
+.peg.mx:after { content: "\2713"; background: #2e9d48; }
+.peg.mc:after { content: "\2194"; background: #5d636b; }
+html.fs .peg { width: 25px; height: 25px; line-height: 25px; font-size: 12px; }
+html.fs .krow { padding: 1px 8px; margin-bottom: 2px; }
+html.fs .fb i { width: 10px; height: 10px; margin: 1px; }
+html.fs #kPal button { width: 40px; height: 40px; margin-bottom: 4px; }
 #kPal button { width: 46px; height: 46px; border-radius: 50%; border: 0; margin: 0 4px 8px; cursor: pointer; font-weight: 700; font-size: 16px; padding: 0; }
 </style>
 <script>var ROOT="../../";</script>
@@ -23,13 +30,13 @@
 <body>
 <header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Code knacken</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
 <main class="wrap">
-<div class="chips" id="kOpt"><button id="kRep">Farben doppelt erlaubt</button></div>
+<div class="chips" id="kOpt"><button id="kRep">Farben doppelt erlaubt</button><button id="kPos">Treffer je Feld</button></div>
 <div class="stats"><div><b id="kTry">1/10</b><span>Versuch</span></div><div><b id="kWins">0</b><span>Geknackt</span></div><div><b id="kBest">–</b><span>Wenigste Züge</span></div></div>
 <div id="kRows"></div>
 <div id="kPal"></div>
 <p class="center" id="kMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl"><button id="kDel" class="tonal">Löschen</button><button id="kCheck" class="ac">Prüfen</button><button id="kNew" class="tonal">Neu</button></div>
-<p class="muted" style="font-size:14px">Der Computer denkt sich einen Code aus vier Farben aus. Tippe Farben an, um eine Reihe zu füllen, und dann auf Prüfen. Ein <b>voller Punkt</b> heißt: richtige Farbe an richtiger Stelle. Ein <b>Ring</b>: richtige Farbe, aber an anderer Stelle. Eine Farbe in der Reihe antippen entfernt sie wieder.</p>
+<p class="muted help" style="font-size:14px">Der Computer denkt sich einen Code aus vier Farben aus. Tippe Farben an, um eine Reihe zu füllen, und dann auf Prüfen. Ein <b>voller Punkt</b> heißt: richtige Farbe an richtiger Stelle. Ein <b>Ring</b>: richtige Farbe, aber an anderer Stelle. Die Punkte sind sortiert (erst volle, dann Ringe) und verraten nicht, welche Farbe gemeint ist – das ist der Knobel-Teil. Leichter geht es mit „Treffer je Feld“: Dann zeigt jede Farbe selbst ✓ (richtige Stelle) oder ↔ (kommt vor, aber woanders); Bestwerte zählen dann nicht. Eine Farbe in der Reihe antippen entfernt sie wieder.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -38,7 +45,7 @@
   "use strict";
   var COLS = ["#e0483e", "#3a6fe0", "#43b047", "#e8c21a", "#8e5bd1", "#ee7a22"], NAMES = ["Rot", "Blau", "Grün", "Gelb", "Lila", "Orange"];
   var L = 4, TRIES = 10;
-  var rep = store.get("code.rep", false), st = store.get("code.stats", { wins: 0, best: 0 });
+  var rep = store.get("code.rep", false), pos = store.get("code.pos", false), st = store.get("code.stats", { wins: 0, best: 0 });
   var secret, rows, cur, over;
 
   themeCss(function (th) {
@@ -47,9 +54,16 @@
       ".fb i.wh{background:none;box-shadow:inset 0 0 0 3px " + th.tx + ";-ms-transform:none;transform:none}";
   });
   function txtCol(i) { return i === 3 ? "#111111" : "#ffffff"; }
-  function peg(v, attr) {
+  /* je Feld: x = richtige Stelle, c = Farbe kommt woanders vor (Anzahl wie bei den Punkten berücksichtigt) */
+  function marks(g) {
+    var m = ["", "", "", ""], left = [0, 0, 0, 0, 0, 0], k;
+    for (k = 0; k < L; k++) { if (g[k] === secret[k]) { m[k] = "x"; } else { left[secret[k]]++; } }
+    for (k = 0; k < L; k++) { if (!m[k] && left[g[k]] > 0) { m[k] = "c"; left[g[k]]--; } }
+    return m;
+  }
+  function peg(v, attr, mk) {
     if (v == null) { return '<span class="peg empty"' + (attr || "") + "></span>"; }
-    return '<span class="peg" style="background:' + COLS[v] + ";color:" + txtCol(v) + '"' + (attr || "") + ' title="' + NAMES[v] + '">' + (v + 1) + "</span>";
+    return '<span class="peg' + (mk ? " m" + mk : "") + '" style="background:' + COLS[v] + ";color:" + txtCol(v) + '"' + (attr || "") + ' title="' + NAMES[v] + '">' + (v + 1) + "</span>";
   }
   function newGame() {
     var pool = [0, 1, 2, 3, 4, 5], k;
@@ -72,11 +86,12 @@
     return h + "</span>";
   }
   function render() {
-    var h = "", r, k, n = rows.length;
+    var h = "", r, k, n = rows.length, mk;
     for (r = 0; r < TRIES; r++) {
       h += '<div class="krow' + (r === n && !over ? " cur" : "") + '"><span class="no muted">' + (r + 1) + "</span>";
+      mk = r < n && pos ? marks(rows[r].g) : null;
       for (k = 0; k < L; k++) {
-        if (r < n) { h += peg(rows[r].g[k]); }
+        if (r < n) { h += peg(rows[r].g[k], "", mk && mk[k]); }
         else if (r === n && !over) { h += peg(cur[k], ' data-k="' + k + '"'); }
         else { h += peg(null); }
       }
@@ -93,6 +108,7 @@
     $("#kWins").textContent = st.wins;
     $("#kBest").textContent = st.best || "–";
     $("#kRep").setAttribute("aria-pressed", rep ? "true" : "false");
+    $("#kPos").setAttribute("aria-pressed", pos ? "true" : "false");
     $("#kCheck").disabled = over || cur.indexOf(null) >= 0;
   }
   function pal() {
@@ -112,7 +128,7 @@
     var f = feedback(cur);
     rows.push({ g: cur.slice(), f: f }); cur = [null, null, null, null];
     if (f.bl === L) {
-      over = true; st.wins++; if (!st.best || rows.length < st.best) { st.best = rows.length; }
+      over = true; st.wins++; if (!pos && (!st.best || rows.length < st.best)) { st.best = rows.length; }
       store.set("code.stats", st);
       $("#kMsg").textContent = "Geknackt in " + rows.length + (rows.length === 1 ? " Zug!" : " Zügen!");
     } else if (rows.length >= TRIES) {
@@ -131,6 +147,7 @@
   };
   $("#kCheck").onclick = check;
   $("#kNew").onclick = newGame;
+  $("#kPos").onclick = function () { pos = !pos; store.set("code.pos", pos); render(); toast(pos ? "Jede Farbe zeigt ✓ oder ↔" : "Nur sortierte Punkte (klassisch)"); };
   $("#kRep").onclick = function () { rep = !rep; store.set("code.rep", rep); newGame(); toast(rep ? "Farben können mehrfach vorkommen" : "Jede Farbe kommt höchstens einmal vor"); };
   document.addEventListener("keydown", function (e) {
     if (e.keyCode >= 49 && e.keyCode <= 54) { add(e.keyCode - 49); }

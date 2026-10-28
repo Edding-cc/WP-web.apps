@@ -22,7 +22,7 @@
 <p class="center" id="rMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c2"><button id="rNew" class="ac">Neues Spiel</button><button id="rHint" class="tonal">Züge zeigen</button></div>
 <p class="muted" style="font-size:14px" id="rRec"></p>
-<p class="muted" style="font-size:14px">Setze einen Stein so, dass du gegnerische Steine waagerecht, senkrecht oder schräg einschließt – sie werden zu deinen. Wer am Ende mehr Steine hat, gewinnt. Kann jemand nicht ziehen, muss er passen.</p>
+<p class="muted help" style="font-size:14px">Setze einen Stein so, dass du gegnerische Steine waagerecht, senkrecht oder schräg einschließt – sie werden zu deinen. Wer am Ende mehr Steine hat, gewinnt. Kann jemand nicht ziehen, muss er passen.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -101,7 +101,7 @@
   }
 
   function size() {
-    var W = Math.min(contentWidth(), 420), r = window.devicePixelRatio || 1;
+    var W = fitWidth(420, 1, $("#rBoard")), r = window.devicePixelRatio || 1;
     cs = W / N;
     cv.style.width = cv.style.height = W + "px"; $("#rBoard").style.width = W + "px";
     cv.width = cv.height = Math.round(W * r);

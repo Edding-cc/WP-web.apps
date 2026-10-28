@@ -24,7 +24,7 @@
 <div class="board" id="ms"></div>
 <p class="center" id="mMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c2"><button id="mMode" class="tonal">Modus: Aufdecken</button><button id="mNew" class="ac">Neues Spiel</button></div>
-<p class="muted" style="font-size:14px">Antippen deckt auf, im Flaggenmodus wird markiert. Lange drücken setzt immer eine Flagge. Tippst du auf eine Zahl, deren Flaggen vollständig sind, werden die übrigen Nachbarn aufgedeckt. Der erste Zug ist immer sicher.</p>
+<p class="muted help" style="font-size:14px">Antippen deckt auf, im Flaggenmodus wird markiert. Lange drücken setzt immer eine Flagge. Tippst du auf eine Zahl, deren Flaggen vollständig sind, werden die übrigen Nachbarn aufgedeckt. Der erste Zug ist immer sicher.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -53,6 +53,7 @@
   }
   function size() {
     var L = LV[lv], avail = contentWidth();
+    if (isFs()) { avail = Math.min(avail, availHeight(board) / L.h * L.w); }
     return Math.max(18, Math.min(40, Math.floor(avail / L.w)));
   }
   function layout() {

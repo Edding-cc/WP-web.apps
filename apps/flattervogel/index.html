@@ -19,7 +19,7 @@
 <div class="chips" id="fMode"><button data-m="0">Entspannt</button><button data-m="1">Normal</button></div>
 <div class="stats"><div><b id="fScore">0</b><span>Punkte</span></div><div><b id="fBest">0</b><span>Rekord</span></div></div>
 <div class="board" id="fBoard"><canvas id="cv"></canvas></div>
-<p class="muted" style="font-size:14px">Tippe aufs Spielfeld (oder Leertaste), damit der Vogel nach oben flattert. Fliege durch die Lücken zwischen den Säulen. „Entspannt“ hat größere Lücken und ist langsamer.</p>
+<p class="muted help" style="font-size:14px">Tippe aufs Spielfeld (oder Leertaste), damit der Vogel nach oben flattert. Fliege durch die Lücken zwischen den Säulen. „Entspannt“ hat größere Lücken und ist langsamer.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -124,7 +124,7 @@
   /* Bereit-Zustand: sanftes Schweben ohne Dauer-Schleife, wenn die Seite verdeckt ist */
   function idle() { if (state === "ready" && !document.hidden && !document.msHidden) { draw(); } setTimeout(idle, 50); }
   function size() {
-    var W = Math.min(contentWidth(), 400), r = window.devicePixelRatio || 1;
+    var W = fitWidth(400, WH / WW, $("#fBoard")), r = window.devicePixelRatio || 1;
     sc = W / WW;
     cv.style.width = W + "px"; cv.style.height = Math.round(WH * sc) + "px"; $("#fBoard").style.width = W + "px";
     cv.width = Math.round(W * r); cv.height = Math.round(WH * sc * r);

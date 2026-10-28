@@ -24,7 +24,7 @@
 <div class="board" id="lg"></div>
 <p class="center" id="lMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl"><button id="lTip" class="tonal">Tipp</button><button id="lNext" class="ac">Neu</button><button id="lReset" class="tonal">Von vorn</button></div>
-<p class="muted" style="font-size:14px">Ein Feld antippen schaltet es und seine vier Nachbarn um. Ziel: alle Lichter aus. Jedes Rätsel ist lösbar; „Lösbar in“ nennt eine Zugzahl, mit der es sicher geht. Mit jedem gelösten Level wird es schwieriger.</p>
+<p class="muted help" style="font-size:14px">Ein Feld antippen schaltet es und seine vier Nachbarn um. Ziel: alle Lichter aus. Jedes Rätsel ist lösbar; „Lösbar in“ nennt eine Zugzahl, mit der es sicher geht. Mit jedem gelösten Level wird es schwieriger.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -58,7 +58,7 @@
   }
   function minMoves() { var c = 0, k; for (k = 0; k < N * N; k++) { c += gen[k] ^ user[k]; } return c; }
   function render() {
-    var W = Math.min(contentWidth(), 360), gap = 6, s = Math.floor((W - gap * N) / N), h = "", k;
+    var W = fitWidth(360, 1, $("#lg")), gap = 6, s = Math.floor((W - gap * N) / N), h = "", k;
     for (k = 0; k < N * N; k++) { h += '<button data-i="' + k + '" class="' + (cells[k] ? "on" : "") + '" style="width:' + s + "px;height:" + s + "px;margin:0 " + gap / 2 + "px " + gap + 'px" aria-label="Feld ' + (k + 1) + (cells[k] ? " an" : " aus") + '"></button>'; }
     $("#lg").style.width = (s + gap) * N + "px"; $("#lg").innerHTML = h;
     $("#lLevel").textContent = level; $("#lMoves").textContent = moves; $("#lMin").textContent = done ? "–" : minMoves();

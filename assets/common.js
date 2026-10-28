@@ -177,7 +177,8 @@
       ".cb{border:2px solid " + t.mu + ";background:none;color:" + t.onac + "}.cb[aria-pressed=\"true\"]{background:" + t.ac + ";border-color:" + t.ac + "}" +
       ".tbl td,.tbl th{border-top:1px solid " + t.bd + "}.tbl th{color:" + t.mu + "}" +
       ".ok{color:" + t.ok + "}.bg-sf2{background:" + t.sf2 + "}.bg-acs{background:" + t.acs + "}" +
-      "body.alarm{background:" + t.ac + "}";
+      "body.alarm{background:" + t.ac + "}" +
+      "#fsExit{background:" + t.sf2 + ";color:" + t.tx + ";box-shadow:0 0 0 1px " + t.bd + "}";
     for (var xi = 0; xi < extraCss.length; xi++) { css += extraCss[xi](t); }
     var el = d.getElementById("themecss");
     if (!el) { el = d.createElement("style"); el.id = "themecss"; d.getElementsByTagName("head")[0].appendChild(el); }
@@ -267,6 +268,60 @@
     if (!cw) { cw = Math.min(d.documentElement.clientWidth || w.innerWidth || 352, 760); }
     return Math.max(160, cw - 32);
   }
+
+  /* ---------- Vollbild ----------
+     Auf App-Seiten blendet der Vollbildmodus Kopfzeile und Hilfetexte (.help) aus; Spiele passen ihr
+     Feld mit fitWidth/availHeight an die Fensterhöhe an. Wo der Browser es kann, zusätzlich echtes Vollbild. */
+  var isApp = w.ROOT === "../../", fsOn = isApp && !!store.get("fs", false);
+  var FS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
+  var FS_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>';
+  function isFs() { return fsOn; }
+  function setFsClass() {
+    var el = d.documentElement;
+    el.className = el.className.replace(/\s*\bfs\b/g, "") + (fsOn ? " fs" : "");
+  }
+  /* Höhe, die ein Spielfeld bekommen darf: Fensterhöhe minus alles andere auf der Seite */
+  function availHeight(board) {
+    var vh = w.innerHeight || d.documentElement.clientHeight || 640;
+    if (!board || !d.body) { return vh; }
+    /* Bereiche mit .fsx (z. B. Einstellungen unter dem Spiel) dürfen unterhalb des Bildschirms liegen */
+    var other = d.body.offsetHeight - board.offsetHeight, xs = $$(".fsx"), k, cs;
+    for (k = 0; k < xs.length; k++) {
+      cs = w.getComputedStyle ? w.getComputedStyle(xs[k], null) : null;
+      other -= xs[k].offsetHeight + (cs ? (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0) : 0);
+    }
+    return Math.max(120, vh - other - 4);
+  }
+  /* Breite eines Spielfelds mit Seitenverhältnis aspect (Höhe/Breite); im Vollbild zusätzlich höhenbegrenzt */
+  function fitWidth(maxW, aspect, board) {
+    var W = Math.min(contentWidth(), maxW || 100000);
+    if (!fsOn || !board) { return W; }
+    return Math.max(160, Math.min(W, Math.floor(availHeight(board) / aspect)));
+  }
+  function relayout() { if (typeof w.onresize === "function") { try { w.onresize(); } catch (e) {} } }
+  function toggleFs() {
+    var el = d.documentElement;
+    fsOn = !fsOn; store.set("fs", fsOn); setFsClass();
+    try {
+      if (fsOn) { if (el.requestFullscreen) { el.requestFullscreen(); } else if (el.msRequestFullscreen) { el.msRequestFullscreen(); } else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); } }
+      else if (d.fullscreenElement && d.exitFullscreen) { d.exitFullscreen(); }
+      else if (d.msFullscreenElement && d.msExitFullscreen) { d.msExitFullscreen(); }
+      else if (d.webkitFullscreenElement && d.webkitExitFullscreen) { d.webkitExitFullscreen(); }
+    } catch (e) {}
+    w.scrollTo(0, 0); relayout(); setTimeout(relayout, 350);
+  }
+  function initFs() {
+    var hd = $("header.top .wrap"), set, b, x;
+    if (!isApp || !hd) { return; }
+    set = hd.querySelector('a[href$="einstellungen/"]');
+    b = d.createElement("button"); b.className = "iconbtn"; b.id = "fsBtn"; b.setAttribute("aria-label", "Vollbild"); b.innerHTML = FS_ICON;
+    hd.insertBefore(b, set || null);
+    x = d.createElement("button"); x.id = "fsExit"; x.setAttribute("aria-label", "Vollbild beenden"); x.innerHTML = FS_EXIT;
+    d.body.appendChild(x);
+    b.onclick = toggleFs; x.onclick = toggleFs;
+    if (fsOn) { relayout(); }
+  }
+  if (isApp) { setFsClass(); }
 
   /* ---------- Hilfen für Zahlen und Zeiten ---------- */
   function pad(n, len) { n = String(n); while (n.length < (len || 2)) { n = "0" + n; } return n; }
@@ -459,8 +514,9 @@
   w.offline = offline;
   w.themeCss = themeCss; w.rnd = rnd; w.shuffle = shuffle; w.secureRandom = secureRandom; w.randU32 = randU32;
   w.onPress = onPress; w.onSwipe = onSwipe; w.onArrows = onArrows; w.contentWidth = contentWidth;
+  w.isFs = isFs; w.availHeight = availHeight; w.fitWidth = fitWidth;
   w.pad = pad; w.fmtDur = fmtDur; w.parseNum = parseNum; w.fmtG = fmtG; w.beep = beep;
 
   applyTheme();
-  if (d.addEventListener) { d.addEventListener("DOMContentLoaded", applyOverlay, false); }
+  if (d.addEventListener) { d.addEventListener("DOMContentLoaded", function () { applyOverlay(); initFs(); }, false); }
 })(window, document);

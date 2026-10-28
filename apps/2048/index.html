@@ -25,7 +25,7 @@
 <p class="center" id="gMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c4" id="gPad"><button data-d="left" aria-label="Links">←</button><button data-d="up" aria-label="Hoch">↑</button><button data-d="down" aria-label="Runter">↓</button><button data-d="right" aria-label="Rechts">→</button></div>
 <div class="ctl c2"><button id="gUndo" class="tonal">Rückgängig</button><button id="gNew" class="ac">Neues Spiel</button></div>
-<p class="muted" style="font-size:14px">Wische über das Spielfeld oder nutze die Pfeile. Gleiche Zahlen verschmelzen. Ziel ist die Kachel 2048 – danach kannst du weiterspielen. Der Spielstand bleibt gespeichert.</p>
+<p class="muted help" style="font-size:14px">Wische über das Spielfeld oder nutze die Pfeile. Gleiche Zahlen verschmelzen. Ziel ist die Kachel 2048 – danach kannst du weiterspielen. Der Spielstand bleibt gespeichert.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -95,7 +95,7 @@
     return hslToHex((acHue + (k - 1) * 28) % 360, 55, l);
   }
   function render(pops) {
-    var W = Math.min(contentWidth(), 420), gap = Math.round(W / 40), s = (W - gap * (N + 1)) / N, h = "", i, v, x, y, bg;
+    var W = fitWidth(420, 1, board), gap = Math.round(W / 40), s = (W - gap * (N + 1)) / N, h = "", i, v, x, y, bg;
     board.style.width = board.style.height = W + "px";
     for (i = 0; i < N * N; i++) {
       x = gap + (i % N) * (s + gap); y = gap + Math.floor(i / N) * (s + gap); v = st.g[i];

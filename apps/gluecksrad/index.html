@@ -21,14 +21,14 @@
 <div class="board" id="wBoard"><canvas id="cv"></canvas></div>
 <div id="wRes"></div>
 <div class="ctl c2"><button id="wSpin" class="ac">Drehen</button><button id="wDrop">Gezogenes entfernen</button></div>
-<div class="card">
+<div class="card fsx">
   <h3>Einträge</h3>
   <div class="chips" id="wPre"><button data-p="0">Ja / Nein</button><button data-p="1">1 bis 6</button><button data-p="2">Essen</button><button data-p="3">Wer fängt an?</button></div>
   <label class="fld" for="wList">Ein Eintrag pro Zeile (2 bis 24)</label>
   <textarea id="wList" rows="6"></textarea>
 </div>
-<div class="card"><h3>Verlauf</h3><div id="wHist" class="muted" style="font-size:14px">Noch nichts gedreht.</div></div>
-<p class="muted" style="font-size:14px">Das Ergebnis wird mit dem Zufallsgenerator des Browsers (<span class="mono">crypto</span>) bestimmt, die Drehung zeigt es nur an. Mit „Gezogenes entfernen“ fliegt jedes Ergebnis aus der Liste – praktisch für Reihenfolgen.</p>
+<div class="card fsx"><h3>Verlauf</h3><div id="wHist" class="muted" style="font-size:14px">Noch nichts gedreht.</div></div>
+<p class="muted help" style="font-size:14px">Das Ergebnis wird mit dem Zufallsgenerator des Browsers (<span class="mono">crypto</span>) bestimmt, die Drehung zeigt es nur an. Mit „Gezogenes entfernen“ fliegt jedes Ergebnis aus der Liste – praktisch für Reihenfolgen.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -53,7 +53,7 @@
   }
   function size() {
     var r = window.devicePixelRatio || 1;
-    D = Math.min(contentWidth(), 360);
+    D = fitWidth(360, 1, $("#wBoard"));
     cv.style.width = cv.style.height = D + "px"; $("#wBoard").style.width = D + "px";
     cv.width = cv.height = Math.round(D * r);
     ctx.setTransform(r, 0, 0, r, 0, 0);

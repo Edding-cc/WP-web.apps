@@ -24,7 +24,7 @@
 <button id="sStart" class="ac">Start</button><button data-d="up" aria-label="Hoch">↑</button><button id="sNew" class="tonal">Neu</button>
 <button data-d="left" aria-label="Links">←</button><button data-d="down" aria-label="Runter">↓</button><button data-d="right" aria-label="Rechts">→</button>
 </div>
-<p class="muted" style="font-size:14px">Steuern per Pfeiltasten oder Wischen über das Spielfeld. Die Schlange wird mit jedem Futter länger und etwas schneller.</p>
+<p class="muted help" style="font-size:14px">Steuern per Pfeiltasten oder Wischen über das Spielfeld. Die Schlange wird mit jedem Futter länger und etwas schneller.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -43,7 +43,7 @@
     $("#sBest").textContent = best;
   }
   function size() {
-    var W = Math.min(contentWidth(), 420), r = window.devicePixelRatio || 1;
+    var W = fitWidth(420, 1, $("#sBoard")), r = window.devicePixelRatio || 1;
     px = W / G;
     cv.style.width = cv.style.height = W + "px"; $("#sBoard").style.width = W + "px";
     cv.width = cv.height = Math.round(W * r);

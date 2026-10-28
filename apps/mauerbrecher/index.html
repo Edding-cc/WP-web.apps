@@ -19,7 +19,7 @@
 <div class="stats"><div><b id="bScore">0</b><span>Punkte</span></div><div><b id="bLevel">1</b><span>Level</span></div><div><b id="bLives">3</b><span>Leben</span></div><div><b id="bBest">0</b><span>Rekord</span></div></div>
 <div class="board" id="bBoard"><canvas id="cv"></canvas></div>
 <div class="ctl"><button data-d="-1" aria-label="Links">←</button><button id="bGo" class="ac">Start</button><button data-d="1" aria-label="Rechts">→</button></div>
-<p class="muted" style="font-size:14px">Schiebe den Schläger mit dem Finger über das Spielfeld oder halte die Pfeiltasten. Tippe aufs Feld, um den Ball abzuschießen. Wo der Ball den Schläger trifft, bestimmt seinen Winkel.</p>
+<p class="muted help" style="font-size:14px">Schiebe den Schläger mit dem Finger über das Spielfeld oder halte die Pfeiltasten. Tippe aufs Feld, um den Ball abzuschießen. Wo der Ball den Schläger trifft, bestimmt seinen Winkel.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -124,7 +124,7 @@
     }
   }
   function size() {
-    var W = Math.min(contentWidth(), 420), r = window.devicePixelRatio || 1;
+    var W = fitWidth(420, WH / WW, $("#bBoard")), r = window.devicePixelRatio || 1;
     sc = W / WW;
     cv.style.width = W + "px"; cv.style.height = Math.round(WH * sc) + "px"; $("#bBoard").style.width = W + "px";
     cv.width = Math.round(W * r); cv.height = Math.round(WH * sc * r);

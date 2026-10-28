@@ -24,7 +24,7 @@
 <div class="chips" id="zSize"><button data-s="2">Fein</button><button data-s="5">Mittel</button><button data-s="10">Dick</button><button data-s="22">Marker</button><button id="zErase">Radierer</button></div>
 <div class="board" id="zBoard"><canvas id="cv"></canvas></div>
 <div class="ctl"><button id="zUndo" class="tonal">Rückgängig</button><button id="zClear" class="tonal">Leeren</button><button id="zImg" class="ac">Als Bild</button></div>
-<p class="muted" style="font-size:14px">Male mit dem Finger. Die Zeichnung wird automatisch in diesem Browser gespeichert. „Als Bild“ zeigt sie als PNG an – je nach Browser lässt sie sich dann durch langes Drücken speichern oder teilen.</p>
+<p class="muted help" style="font-size:14px">Male mit dem Finger. Die Zeichnung wird automatisch in diesem Browser gespeichert. „Als Bild“ zeigt sie als PNG an – je nach Browser lässt sie sich dann durch langes Drücken speichern oder teilen.</p>
 </main>
 <div id="zOut" hidden><p id="zOutHint" style="margin:0 0 12px">Lange auf das Bild drücken, um es zu speichern (wenn der Browser das anbietet). Antippen außerhalb schließt.</p><img id="zPng" alt="Zeichnung"><p><button class="btn" id="zClose">Schließen</button></p></div>
 <div id="fpsOverlay"></div>
@@ -50,7 +50,7 @@
   }
   function size() {
     var r = window.devicePixelRatio || 1;
-    W = contentWidth(); H = Math.round(W * RATIO);
+    W = fitWidth(0, RATIO, $("#zBoard")); H = Math.round(W * RATIO);
     cv.style.width = W + "px"; cv.style.height = H + "px"; $("#zBoard").style.width = W + "px";
     cv.width = Math.round(W * r); cv.height = Math.round(H * r);
     ctx.setTransform(r, 0, 0, r, 0, 0);

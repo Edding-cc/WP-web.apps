@@ -19,6 +19,12 @@
 #fs td.v { text-align: right; width: 64px; font-weight: 600; font-family: Consolas, "Courier New", monospace; }
 #fs tr.pick td.v { cursor: pointer; }
 #fs tr.sum td { font-weight: 700; }
+html.fs #fd button { max-width: 44px; }
+html.fs #fMsg { min-height: 0; margin: 0 !important; }
+html.fs #fWho { margin: 0 !important; }
+html.fs #fs td, html.fs #fs th { padding: 1px 6px; font-size: 13px; }
+html.fs #fd .hold { height: 12px; line-height: 12px; font-size: 9px; }
+html.fs .card { padding: 4px 10px !important; }
 </style>
 <script>var ROOT="../../";</script>
 <script src="../../assets/common.js"></script>
@@ -32,7 +38,7 @@
 <div class="ctl c2"><button id="fRoll" class="ac">Würfeln</button><button id="fNew" class="tonal">Neues Spiel</button></div>
 <p class="center" id="fMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="card" style="padding:8px 10px"><table class="tbl" id="fs"></table></div>
-<p class="muted" style="font-size:14px">Bis zu dreimal pro Runde würfeln. Würfel antippen hält sie fest. Dann ein freies Feld in der Tabelle antippen – die grauen Zahlen zeigen, was du dort bekämst. Oben ab 63 Punkten gibt es 35 Bonus. Rekord: <b id="fBest">0</b> Punkte.</p>
+<p class="muted help" style="font-size:14px">Bis zu dreimal pro Runde würfeln. Würfel antippen hält sie fest. Dann ein freies Feld in der Tabelle antippen – die grauen Zahlen zeigen, was du dort bekämst. Oben ab 63 Punkten gibt es 35 Bonus. Rekord: <b id="fBest">0</b> Punkte.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
