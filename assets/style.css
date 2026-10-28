@@ -133,18 +133,3 @@ canvas.chart { width: 100%; height: 120px; display: block; border-radius: 12px; 
 .flex > .grow { -ms-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
 .flex > * + * { margin-left: 8px; }
 .timebig { font-size: 56px; font-weight: 700; line-height: 1.1; font-family: Consolas, "Courier New", monospace; text-align: center; margin: 8px 0; }
-
-/* Vollbild (App-Seiten): Kopfzeile und Hilfetexte ausblenden, kleiner Knopf zum Beenden */
-#fsExit { position: fixed; top: 6px; right: 6px; z-index: 45; width: 38px; height: 38px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; display: none; opacity: .85; }
-#fsExit svg { width: 20px; height: 20px; vertical-align: middle; }
-html.fs #fsExit { display: block; }
-html.fs header.top, html.fs .help { display: none; }
-html.fs main.wrap { padding-top: 6px; padding-bottom: 8px; }
-html.fs main.wrap > :first-child { margin-right: 46px; }
-html.fs h2 { margin-top: 12px; }
-html.fs .stats { margin-bottom: 6px; }
-html.fs .stats > div { padding: 3px 4px; }
-html.fs .stats b { font-size: 17px; }
-html.fs .stats span { font-size: 11px; }
-html.fs .chips button { min-height: 32px; padding: 4px 12px; font-size: 13px; margin-bottom: 4px; }
-html.fs .ctl button { height: 48px; }

@@ -178,7 +178,7 @@
       ".tbl td,.tbl th{border-top:1px solid " + t.bd + "}.tbl th{color:" + t.mu + "}" +
       ".ok{color:" + t.ok + "}.bg-sf2{background:" + t.sf2 + "}.bg-acs{background:" + t.acs + "}" +
       "body.alarm{background:" + t.ac + "}" +
-      "#fsExit{background:" + t.sf2 + ";color:" + t.tx + ";box-shadow:0 0 0 1px " + t.bd + "}";
+      "#fsExit{background:" + t.sf2 + ";color:" + t.tx + ";box-shadow:0 0 0 1px " + t.bd + "}" + FS_CSS;
     for (var xi = 0; xi < extraCss.length; xi++) { css += extraCss[xi](t); }
     var el = d.getElementById("themecss");
     if (!el) { el = d.createElement("style"); el.id = "themecss"; d.getElementsByTagName("head")[0].appendChild(el); }
@@ -271,7 +271,14 @@
 
   /* ---------- Vollbild ----------
      Auf App-Seiten blendet der Vollbildmodus Kopfzeile und Hilfetexte (.help) aus; Spiele passen ihr
-     Feld mit fitWidth/availHeight an die Fensterhöhe an. Wo der Browser es kann, zusätzlich echtes Vollbild. */
+     Feld mit fitWidth/availHeight an die Fensterhöhe an. In Browsern mit Fullscreen-API zusätzlich echtes Vollbild. */
+  /* Regeln stehen hier statt in style.css: so passen sie immer zur Logik, auch wenn der
+     Offline-Speicher oder ein Zwischenspeicher eine ältere style.css liefert */
+  var FS_CSS = "#fsExit{float:right;margin:0 0 6px 8px;width:38px;height:38px;border-radius:50%;border:0;padding:0;cursor:pointer;display:none}" +
+    "#fsExit svg{width:20px;height:20px;vertical-align:middle}html.fs #fsExit{display:block}" +
+    "html.fs header.top,html.fs .help{display:none}html.fs main.wrap{padding-top:6px;padding-bottom:8px}" +
+    "html.fs h2{margin-top:12px}html.fs .stats{margin-bottom:6px}html.fs .stats>div{padding:3px 4px}html.fs .stats b{font-size:17px}html.fs .stats span{font-size:11px}" +
+    "html.fs .chips button{min-height:32px;padding:4px 12px;font-size:13px;margin-bottom:4px}html.fs .ctl button{height:48px}";
   var isApp = w.ROOT === "../../", fsOn = isApp && !!store.get("fs", false);
   var FS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
   var FS_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>';
@@ -303,9 +310,9 @@
     var el = d.documentElement;
     fsOn = !fsOn; store.set("fs", fsOn); setFsClass();
     try {
-      if (fsOn) { if (el.requestFullscreen) { el.requestFullscreen(); } else if (el.msRequestFullscreen) { el.msRequestFullscreen(); } else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); } }
+      /* bewusst ohne msRequestFullscreen: im IE11 auf Windows Phone sperrt das Scrollen und verschiebt die Breite */
+      if (fsOn) { if (el.requestFullscreen) { el.requestFullscreen(); } else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); } }
       else if (d.fullscreenElement && d.exitFullscreen) { d.exitFullscreen(); }
-      else if (d.msFullscreenElement && d.msExitFullscreen) { d.msExitFullscreen(); }
       else if (d.webkitFullscreenElement && d.webkitExitFullscreen) { d.webkitExitFullscreen(); }
     } catch (e) {}
     w.scrollTo(0, 0); relayout(); setTimeout(relayout, 350);
@@ -317,7 +324,8 @@
     b = d.createElement("button"); b.className = "iconbtn"; b.id = "fsBtn"; b.setAttribute("aria-label", "Vollbild"); b.innerHTML = FS_ICON;
     hd.insertBefore(b, set || null);
     x = d.createElement("button"); x.id = "fsExit"; x.setAttribute("aria-label", "Vollbild beenden"); x.innerHTML = FS_EXIT;
-    d.body.appendChild(x);
+    /* oben rechts in die Seite, der Inhalt fließt darum herum (kein fester Knopf über dem Inhalt) */
+    set = $("main"); if (set) { set.insertBefore(x, set.firstChild); } else { d.body.appendChild(x); }
     b.onclick = toggleFs; x.onclick = toggleFs;
     if (fsOn) { relayout(); }
   }

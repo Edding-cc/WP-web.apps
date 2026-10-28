@@ -1,7 +1,7 @@
 CACHE MANIFEST
 # Windows Phone 8.1 Web Apps – Offline-Speicher (Application Cache, IE11)
 # Bei JEDER Änderung an einer Datei die Version erhöhen, sonst lädt IE11 nichts Neues.
-# Version 2026-10-28.5
+# Version 2026-10-28.6
 
 CACHE:
 ./
