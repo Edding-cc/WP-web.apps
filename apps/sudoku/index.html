@@ -27,7 +27,7 @@
 <p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c5" id="sPad2"></div>
 <div class="ctl"><button id="sNotes" class="tonal">Notizen: aus</button><button id="sHint" class="tonal">Tipp</button><button id="sNew" class="ac">Neu</button></div>
-<div class="card"><div class="switch"><span>Fehler sofort markieren</span><button class="tg" id="sShowErr" aria-pressed="false" aria-label="Fehler markieren"></button></div></div>
+<div class="card fsx"><div class="switch"><span>Fehler sofort markieren</span><button class="tg" id="sShowErr" aria-pressed="false" aria-label="Fehler markieren"></button></div></div>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -106,7 +106,7 @@
   }
   function save() { store.set("sudoku", st); }
   function build() {
-    var h = "", r, c, W = Math.min(contentWidth(), 440), cs = Math.floor((W - 6) / 9);
+    var h = "", r, c, W = fitWidth(440, 1, $("#sBoard")), cs = Math.floor((W - 6) / 9);
     for (r = 0; r < 9; r++) {
       h += "<tr>";
       for (c = 0; c < 9; c++) {

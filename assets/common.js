@@ -177,7 +177,8 @@
       ".cb{border:2px solid " + t.mu + ";background:none;color:" + t.onac + "}.cb[aria-pressed=\"true\"]{background:" + t.ac + ";border-color:" + t.ac + "}" +
       ".tbl td,.tbl th{border-top:1px solid " + t.bd + "}.tbl th{color:" + t.mu + "}" +
       ".ok{color:" + t.ok + "}.bg-sf2{background:" + t.sf2 + "}.bg-acs{background:" + t.acs + "}" +
-      "body.alarm{background:" + t.ac + "}";
+      "body.alarm{background:" + t.ac + "}" +
+      "#fsExit{background:" + t.sf2 + ";color:" + t.tx + ";box-shadow:0 0 0 1px " + t.bd + "}" + FS_CSS;
     for (var xi = 0; xi < extraCss.length; xi++) { css += extraCss[xi](t); }
     var el = d.getElementById("themecss");
     if (!el) { el = d.createElement("style"); el.id = "themecss"; d.getElementsByTagName("head")[0].appendChild(el); }
@@ -267,6 +268,68 @@
     if (!cw) { cw = Math.min(d.documentElement.clientWidth || w.innerWidth || 352, 760); }
     return Math.max(160, cw - 32);
   }
+
+  /* ---------- Vollbild ----------
+     Auf App-Seiten blendet der Vollbildmodus Kopfzeile und Hilfetexte (.help) aus; Spiele passen ihr
+     Feld mit fitWidth/availHeight an die Fensterhöhe an. In Browsern mit Fullscreen-API zusätzlich echtes Vollbild. */
+  /* Regeln stehen hier statt in style.css: so passen sie immer zur Logik, auch wenn der
+     Offline-Speicher oder ein Zwischenspeicher eine ältere style.css liefert */
+  var FS_CSS = "#fsExit{float:right;margin:0 0 6px 8px;width:38px;height:38px;border-radius:50%;border:0;padding:0;cursor:pointer;display:none}" +
+    "#fsExit svg{width:20px;height:20px;vertical-align:middle}html.fs #fsExit{display:block}" +
+    "html.fs header.top,html.fs .help{display:none}html.fs main.wrap{padding-top:6px;padding-bottom:8px}" +
+    "html.fs h2{margin-top:12px}html.fs .stats{margin-bottom:6px}html.fs .stats>div{padding:3px 4px}html.fs .stats b{font-size:17px}html.fs .stats span{font-size:11px}" +
+    "html.fs .chips button{min-height:32px;padding:4px 12px;font-size:13px;margin-bottom:4px}html.fs .ctl button{height:48px}";
+  var isApp = w.ROOT === "../../", fsOn = isApp && !!store.get("fs", false);
+  var FS_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
+  var FS_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>';
+  function isFs() { return fsOn; }
+  function setFsClass() {
+    var el = d.documentElement;
+    el.className = el.className.replace(/\s*\bfs\b/g, "") + (fsOn ? " fs" : "");
+  }
+  /* Höhe, die ein Spielfeld bekommen darf: Fensterhöhe minus alles andere auf der Seite */
+  function availHeight(board) {
+    var vh = w.innerHeight || d.documentElement.clientHeight || 640;
+    if (!board || !d.body) { return vh; }
+    /* Bereiche mit .fsx (z. B. Einstellungen unter dem Spiel) dürfen unterhalb des Bildschirms liegen */
+    var other = d.body.offsetHeight - board.offsetHeight, xs = $$(".fsx"), k, cs;
+    for (k = 0; k < xs.length; k++) {
+      cs = w.getComputedStyle ? w.getComputedStyle(xs[k], null) : null;
+      other -= xs[k].offsetHeight + (cs ? (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0) : 0);
+    }
+    return Math.max(120, vh - other - 4);
+  }
+  /* Breite eines Spielfelds mit Seitenverhältnis aspect (Höhe/Breite); im Vollbild zusätzlich höhenbegrenzt */
+  function fitWidth(maxW, aspect, board) {
+    var W = Math.min(contentWidth(), maxW || 100000);
+    if (!fsOn || !board) { return W; }
+    return Math.max(160, Math.min(W, Math.floor(availHeight(board) / aspect)));
+  }
+  function relayout() { if (typeof w.onresize === "function") { try { w.onresize(); } catch (e) {} } }
+  function toggleFs() {
+    var el = d.documentElement;
+    fsOn = !fsOn; store.set("fs", fsOn); setFsClass();
+    try {
+      /* bewusst ohne msRequestFullscreen: im IE11 auf Windows Phone sperrt das Scrollen und verschiebt die Breite */
+      if (fsOn) { if (el.requestFullscreen) { el.requestFullscreen(); } else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); } }
+      else if (d.fullscreenElement && d.exitFullscreen) { d.exitFullscreen(); }
+      else if (d.webkitFullscreenElement && d.webkitExitFullscreen) { d.webkitExitFullscreen(); }
+    } catch (e) {}
+    w.scrollTo(0, 0); relayout(); setTimeout(relayout, 350);
+  }
+  function initFs() {
+    var hd = $("header.top .wrap"), set, b, x;
+    if (!isApp || !hd) { return; }
+    set = hd.querySelector('a[href$="einstellungen/"]');
+    b = d.createElement("button"); b.className = "iconbtn"; b.id = "fsBtn"; b.setAttribute("aria-label", "Vollbild"); b.innerHTML = FS_ICON;
+    hd.insertBefore(b, set || null);
+    x = d.createElement("button"); x.id = "fsExit"; x.setAttribute("aria-label", "Vollbild beenden"); x.innerHTML = FS_EXIT;
+    /* oben rechts in die Seite, der Inhalt fließt darum herum (kein fester Knopf über dem Inhalt) */
+    set = $("main"); if (set) { set.insertBefore(x, set.firstChild); } else { d.body.appendChild(x); }
+    b.onclick = toggleFs; x.onclick = toggleFs;
+    if (fsOn) { relayout(); }
+  }
+  if (isApp) { setFsClass(); }
 
   /* ---------- Hilfen für Zahlen und Zeiten ---------- */
   function pad(n, len) { n = String(n); while (n.length < (len || 2)) { n = "0" + n; } return n; }
@@ -370,6 +433,7 @@
     { id: "geraeteinfo", dir: "tools", title: "Geräteinfo" },
     { id: "netzwerk", dir: "tools", title: "Netzwerk" },
     { id: "speedtest", dir: "tools", title: "Speedtest" },
+    { id: "datenvolumen", dir: "tools", title: "Datenvolumen" },
     { id: "licht", dir: "tools", title: "Bildschirmlicht" },
     { id: "palette", dir: "tools", title: "Farbe & Palette" },
     { id: "verknuepfungen", dir: "tools", title: "Verknüpfungen" },
@@ -381,6 +445,23 @@
     { id: "memory", dir: "apps", title: "Memory" },
     { id: "schiebepuzzle", dir: "apps", title: "Schiebepuzzle" },
     { id: "tictactoe", dir: "apps", title: "Tic-Tac-Toe" },
+    { id: "vierreihe", dir: "apps", title: "Vier in einer Reihe" },
+    { id: "reversi", dir: "apps", title: "Reversi" },
+    { id: "codeknacken", dir: "apps", title: "Code knacken" },
+    { id: "galgen", dir: "apps", title: "Galgenmännchen" },
+    { id: "mauerbrecher", dir: "apps", title: "Mauerbrecher" },
+    { id: "flattervogel", dir: "apps", title: "Flattervogel" },
+    { id: "farbfolge", dir: "apps", title: "Farbfolge" },
+    { id: "lichteraus", dir: "apps", title: "Lichter aus" },
+    { id: "reaktion", dir: "apps", title: "Reaktionstest" },
+    { id: "solitaer", dir: "apps", title: "Solitär" },
+    { id: "kopfrechnen", dir: "apps", title: "Kopfrechnen-Duell" },
+    { id: "fuenfwuerfel", dir: "apps", title: "Fünf Würfel" },
+    { id: "pingpong", dir: "apps", title: "Ping-Pong" },
+    { id: "zeichnen", dir: "apps", title: "Zeichenblock" },
+    { id: "gluecksrad", dir: "apps", title: "Glücksrad" },
+    { id: "laufschrift", dir: "apps", title: "Laufschrift" },
+    { id: "social", dir: "apps", title: "Social" },
     { id: "notizen", dir: "apps", title: "Notizen" },
     { id: "todo", dir: "apps", title: "To-do-Liste" },
     { id: "stoppuhr", dir: "apps", title: "Stoppuhr" },
@@ -441,8 +522,9 @@
   w.offline = offline;
   w.themeCss = themeCss; w.rnd = rnd; w.shuffle = shuffle; w.secureRandom = secureRandom; w.randU32 = randU32;
   w.onPress = onPress; w.onSwipe = onSwipe; w.onArrows = onArrows; w.contentWidth = contentWidth;
+  w.isFs = isFs; w.availHeight = availHeight; w.fitWidth = fitWidth;
   w.pad = pad; w.fmtDur = fmtDur; w.parseNum = parseNum; w.fmtG = fmtG; w.beep = beep;
 
   applyTheme();
-  if (d.addEventListener) { d.addEventListener("DOMContentLoaded", applyOverlay, false); }
+  if (d.addEventListener) { d.addEventListener("DOMContentLoaded", function () { applyOverlay(); initFs(); }, false); }
 })(window, document);

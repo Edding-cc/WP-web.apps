@@ -22,7 +22,7 @@
 <div class="board" id="pz"></div>
 <p class="center" id="pMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c2"><button id="pNew" class="ac">Mischen</button><button id="pHelp" class="tonal">Ziel zeigen</button></div>
-<p class="muted" style="font-size:14px">Tippe auf ein Feld in der Reihe oder Spalte der Lücke oder wische. Ziel: Zahlen der Reihe nach, Lücke unten rechts.</p>
+<p class="muted help" style="font-size:14px">Tippe auf ein Feld in der Reihe oder Spalte der Lücke oder wische. Ziel: Zahlen der Reihe nach, Lücke unten rechts.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -56,7 +56,7 @@
     return o;
   }
   function render() {
-    var W = Math.min(contentWidth(), 420), gap = 5, s = (W - gap * (n + 1)) / n, h = "", i;
+    var W = fitWidth(420, 1, $("#pz")), gap = 5, s = (W - gap * (n + 1)) / n, h = "", i;
     $("#pz").style.width = $("#pz").style.height = W + "px";
     for (i = 0; i < n * n; i++) {
       if (!g[i]) { continue; }

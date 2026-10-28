@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Social · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+.post { border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+.au { display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; cursor: pointer; }
+.au .grow { -ms-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.av { width: 40px; height: 40px; border-radius: 50%; -ms-flex: 0 0 40px; flex: 0 0 40px; margin-right: 10px; display: block; text-align: center; line-height: 40px; font-weight: 700; overflow: hidden; }
+.av.big { width: 64px; height: 64px; -ms-flex-preferred-size: 64px; flex-basis: 64px; line-height: 64px; font-size: 24px; }
+.nm { font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hd { font-size: 13px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pt { white-space: pre-wrap; word-wrap: break-word; margin-top: 8px; }
+.ph { word-wrap: break-word; margin-top: 8px; }
+.ph p { margin: 0 0 8px; }
+.media { margin-top: 8px; font-size: 0; }
+.media a { display: inline-block; width: 49%; margin: 0 1% 1% 0; vertical-align: top; position: relative; }
+.media.one a { width: 100%; margin-right: 0; }
+.media img { width: 100%; border-radius: 10px; display: block; }
+.media .vid { position: absolute; left: 8px; bottom: 8px; font-size: 13px; background: rgba(0,0,0,.7); color: #fff; padding: 2px 8px; border-radius: 8px; }
+.ext { display: block; margin-top: 8px; border-radius: 12px; text-decoration: none; overflow: hidden; }
+.ext img { width: 100%; display: block; }
+.ext div { padding: 8px 10px; font-size: 14px; word-wrap: break-word; }
+.ext small { display: block; }
+.quote { margin-top: 8px; border-radius: 12px; padding: 8px 10px; font-size: 14px; }
+.pm { font-size: 13px; margin-top: 8px; display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; }
+.pm span { margin-right: 14px; white-space: nowrap; }
+.pm svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; }
+.pm a { margin-left: auto; }
+.rp { font-size: 13px; margin-bottom: 6px; }
+.tag { font-weight: 600; }
+.cnt span { display: inline-block; margin: 6px 14px 0 0; font-size: 14px; }
+#qRow { margin-top: 10px; }
+#qRow input { -ms-flex: 1 1 auto; flex: 1 1 auto; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Social</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="seg" id="net"><button data-n="bsky">Bluesky</button><button data-n="masto">Mastodon</button></div>
+<div id="instRow" class="mt" hidden><label class="fld" for="inst" style="margin-top:0">Mastodon-Instanz</label><div class="flex"><input type="text" id="inst" class="grow" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="z. B. mastodon.social"><button class="btn tonal" id="instGo">Wechseln</button></div></div>
+<div class="chips mt" id="views"></div>
+<div class="flex" id="qRow" hidden><input type="text" id="q" autocapitalize="off" autocorrect="off" spellcheck="false"><button class="btn tonal" id="qGo">Anzeigen</button></div>
+<div class="chips mt" id="favs" hidden></div>
+<div class="card" id="gate" hidden>
+  <h3>Bevor es losgeht</h3>
+  <p class="muted" style="font-size:14px;margin:0 0 10px">Diese App lädt Beiträge direkt von Bluesky bzw. der gewählten Mastodon-Instanz. Dabei erhalten diese Dienste (und deren Bild-Server) deine IP-Adresse und übliche Browserdaten. Es gibt keinen Server dazwischen. Details unten unter „Datenschutz“.</p>
+  <button class="btn" id="gateOk">Verstanden, Inhalte laden</button>
+</div>
+<div id="head" class="mt"></div>
+<div id="feed"></div>
+<p class="center muted" id="status" style="min-height:1.5em"></p>
+<p class="center"><button class="btn tonal" id="more" hidden>Mehr laden</button></p>
+<div class="card">
+  <h3>Anzeige</h3>
+  <div class="switch"><span>Bilder und Profilbilder laden</span><button class="tg" id="optImg" aria-label="Bilder laden"></button></div>
+  <div class="switch"><span>Als sensibel markierte Bilder sofort zeigen</span><button class="tg" id="optSens" aria-label="Sensible Bilder zeigen"></button></div>
+</div>
+<div class="card">
+  <h3>Datenschutz</h3>
+  <ul class="nope">
+    <li>Kein eigener Server: Dein Browser fragt die Dienste direkt ab. <b>Bluesky</b>: <span class="mono">public.api.bsky.app</span> zum Lesen, Bilder von <span class="mono">cdn.bsky.app</span> und <span class="mono">video.bsky.app</span>; nach der Anmeldung zusätzlich dein Bluesky-Server (z. B. <span class="mono">bsky.social</span>). <b>Mastodon</b>: die eingestellte Instanz und deren Medienserver.</li>
+    <li>Diese Dienste sehen deine IP-Adresse und Browserdaten. Links und „Öffnen“ führen auf externe Seiten.</li>
+    <li>Anmeldung (nur Bluesky): Das App-Passwort wird nur an deinen Bluesky-Server geschickt und nicht gespeichert. Die Sitzungsschlüssel liegen im lokalen Speicher dieses Browsers, bis du dich abmeldest oder unter Einstellungen alle Daten löschst. App-Passwörter kannst du in den Bluesky-Einstellungen jederzeit widerrufen.</li>
+    <li>Merkliste, Instanz und Einstellungen bleiben nur auf diesem Gerät.</li>
+  </ul>
+</div>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var PUB = "https://public.api.bsky.app/xrpc/";
+  var DISCOVER = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
+  var ADULT = { porn: 1, sexual: 1, nudity: 1, "graphic-media": 1, gore: 1 };
+  var VIEWS = {
+    bsky: [["discover", "Entdecken"], ["profile", "Profil"], ["timeline", "Meine Timeline"], ["account", "Konto"]],
+    masto: [["trends", "Trends"], ["tag", "Hashtag"], ["profile", "Profil"]]
+  };
+  var ICON = {
+    re: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg>',
+    rp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3"/></svg>',
+    lk: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>'
+  };
+  var cfg = assign({ net: "bsky", bView: "discover", mView: "trends", inst: "mastodon.social", imgs: true, sens: false, ok: false, bQ: "", mTag: "", mAcct: "" }, store.get("social.cfg", {}));
+  var favs = store.get("social.favs", []), sess = store.get("social.bsky", null);
+  var seq = 0, page = { fn: null, cursor: null, acctId: null };
+
+  themeCss(function (t) {
+    return ".post{background:" + t.sf + ";border:1px solid " + t.bd + "}.ext,.quote{border:1px solid " + t.bd + ";color:" + t.tx + "}" +
+      ".ext small,.rp,.pm,.hd,.cnt{color:" + t.mu + "}.tag{color:" + t.link + "}.av{background:" + t.acs + ";color:" + t.tx + "}";
+  });
+
+  /* ---------- Hilfen ---------- */
+  function trim(s) { return String(s || "").replace(/^\s+|\s+$/g, ""); }
+  function safe(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+  function enc(s) { return encodeURIComponent(s); }
+  function saveCfg() { store.set("social.cfg", cfg); }
+  function utf8(s) { try { return unescape(encodeURIComponent(s)); } catch (e) { return null; } }
+  function fromUtf8(b) { try { return decodeURIComponent(escape(b)); } catch (e) { return b; } }
+  function glen(s) { return s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "_").length; }
+  function num(n) { n = +n || 0; return n >= 1e6 ? nf(n / 1e6, 1) + " Mio." : n >= 1e4 ? nf(n / 1e3, 1) + " Tsd." : nf(n, 0); }
+  /* ISO-Zeit robust lesen (IE11 kennt keine Mikrosekunden und keine "+00:00"-Form) */
+  function parseIso(s) {
+    var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d+))?(Z|([+\-])(\d\d):?(\d\d))?$/.exec(s || ""), t;
+    if (!m) { return NaN; }
+    t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], m[7] ? Math.floor(parseFloat("0." + m[7]) * 1000) : 0);
+    if (m[9]) { t -= (m[9] === "+" ? 1 : -1) * (+m[10] * 60 + +m[11]) * 60000; }
+    return t;
+  }
+  function ago(s) {
+    var t = parseIso(s), d, x;
+    if (isNaN(t)) { return ""; }
+    d = Math.round((new Date().getTime() - t) / 1000);
+    if (d < 60) { return "gerade eben"; }
+    if (d < 3600) { return "vor " + Math.floor(d / 60) + " Min."; }
+    if (d < 86400) { return "vor " + Math.floor(d / 3600) + " Std."; }
+    if (d < 7 * 86400) { x = Math.floor(d / 86400); return "vor " + x + (x === 1 ? " Tag" : " Tagen"); }
+    x = new Date(t); return pad(x.getDate()) + "." + pad(x.getMonth() + 1) + "." + x.getFullYear();
+  }
+  function status(msg, err) { var s = $("#status"); s.textContent = msg || ""; s.className = "center " + (err ? "err" : "muted"); }
+  function errText(e) {
+    var M = { "Profile not found": "Profil nicht gefunden.", "Record not found": "Nicht gefunden." };
+    if (!e.status || e.de) { return e.message || "Keine Verbindung oder vom Browser blockiert."; }
+    if (e.status === 429) { return "Zu viele Anfragen – bitte kurz warten."; }
+    if (e.status === 404) { return "Nicht gefunden."; }
+    return M[e.message] || "Fehler " + e.status + (e.message ? ": " + e.message : "");
+  }
+  function req(method, url, body, token, cb) {
+    var x;
+    try {
+      x = new XMLHttpRequest();
+      x.open(method, url, true);
+      x.timeout = 20000;
+      if (body) { x.setRequestHeader("Content-Type", "application/json"); }
+      if (token) { x.setRequestHeader("Authorization", "Bearer " + token); }
+      x.onload = function () {
+        var j = null;
+        try { j = JSON.parse(x.responseText); } catch (e) {}
+        if (x.status >= 200 && x.status < 300) { cb(null, j); }
+        else { cb({ status: x.status, error: j && j.error, message: j && (j.message || j.error) }, j); }
+      };
+      x.onerror = function () { cb({ status: 0 }); };
+      x.ontimeout = function () { cb({ status: 0, message: "Zeitüberschreitung." }); };
+      x.send(body ? JSON.stringify(body) : null);
+    } catch (e) { cb({ status: 0, message: "Anfrage nicht möglich." }); }
+  }
+
+  /* ---------- Mastodon-HTML: nur Text, Absätze, Umbrüche und http(s)-Links übernehmen ---------- */
+  function parseHtml(html) {
+    var doc = null;
+    try { doc = new DOMParser().parseFromString("<!DOCTYPE html><html><body>" + html + "</body></html>", "text/html"); } catch (e) {}
+    if (!doc || !doc.body) { try { doc = document.implementation.createHTMLDocument(""); doc.body.innerHTML = html; } catch (e2) { return null; } }
+    return doc.body;
+  }
+  function walk(node) {
+    var out = "", k, c, tag, cls, href, txt;
+    for (k = 0; k < node.childNodes.length; k++) {
+      c = node.childNodes[k];
+      if (c.nodeType === 3) { out += esc(c.nodeValue); continue; }
+      if (c.nodeType !== 1) { continue; }
+      tag = c.nodeName.toLowerCase(); cls = " " + (c.getAttribute("class") || "") + " ";
+      if (tag === "script" || tag === "style" || tag === "img" || tag === "iframe" || tag === "object") { continue; }
+      if (tag === "br") { out += "<br>"; }
+      else if (tag === "p") { out += "<p>" + walk(c) + "</p>"; }
+      else if (tag === "span" && cls.indexOf(" invisible ") >= 0) { continue; }
+      else if (tag === "span" && cls.indexOf(" ellipsis ") >= 0) { out += walk(c) + "…"; }
+      else if (tag === "a") {
+        href = c.getAttribute("href") || ""; txt = c.textContent || c.innerText || "";
+        if (cls.indexOf(" hashtag ") >= 0 && txt.charAt(0) === "#") { out += '<a href="#" class="tag" data-mtag="' + esc(txt.slice(1)) + '">' + esc(txt) + "</a>"; }
+        else if (safe(href)) { out += '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + walk(c) + "</a>"; }
+        else { out += walk(c); }
+      }
+      else { out += walk(c); }
+    }
+    return out;
+  }
+  function clean(html) { var b = parseHtml(html || ""); return b ? walk(b) : esc(String(html || "").replace(/<[^>]*>/g, " ")); }
+
+  /* ---------- Bluesky: Text mit Facetten (Byte-Positionen in UTF-8) ---------- */
+  function bText(text, facets) {
+    var b = facets && facets.length ? utf8(text) : null, out = "", pos = 0, fs, k, f, s, e, seg, ft;
+    if (b === null) { return esc(text); }
+    fs = facets.slice().sort(function (x, y) { return (x.index ? x.index.byteStart : 0) - (y.index ? y.index.byteStart : 0); });
+    for (k = 0; k < fs.length; k++) {
+      f = fs[k]; if (!f.index) { continue; }
+      s = f.index.byteStart; e = f.index.byteEnd;
+      if (s < pos || e <= s || e > b.length) { continue; }
+      out += esc(fromUtf8(b.slice(pos, s))); seg = esc(fromUtf8(b.slice(s, e))); ft = (f.features && f.features[0]) || {};
+      if (ft.$type === "app.bsky.richtext.facet#link" && safe(ft.uri)) { out += '<a href="' + esc(ft.uri) + '" target="_blank" rel="noopener noreferrer">' + seg + "</a>"; }
+      else if (ft.$type === "app.bsky.richtext.facet#mention" && ft.did) { out += '<a href="#" data-bsky="' + esc(ft.did) + '">' + seg + "</a>"; }
+      else if (ft.$type === "app.bsky.richtext.facet#tag") { out += '<span class="tag">' + seg + "</span>"; }
+      else { out += seg; }
+      pos = e;
+    }
+    return out + esc(fromUtf8(b.slice(pos)));
+  }
+  /* Links und #Hashtags für einen neuen Beitrag als Facetten markieren */
+  function makeFacets(text) {
+    var out = [], re = /https?:\/\/[^\s<>"]+|(^|\s)(#[^\s#.,;:!?()\[\]"']+)/g, m, s, val, start;
+    while ((m = re.exec(text))) {
+      if (m[2]) { val = m[2]; start = m.index + m[1].length; }
+      else { val = m[0].replace(/[.,;:!?)\]'"]+$/, ""); start = m.index; }
+      s = utf8(text.slice(0, start)); if (s === null) { return []; }
+      out.push({ index: { byteStart: s.length, byteEnd: s.length + utf8(val).length },
+        features: [m[2] ? { $type: "app.bsky.richtext.facet#tag", tag: val.slice(1) } : { $type: "app.bsky.richtext.facet#link", uri: val }] });
+    }
+    return out;
+  }
+  /* Bluesky liefert Bilder sonst als WebP, das IE11 nicht anzeigt */
+  function bImg(u) {
+    if (!safe(u)) { return ""; }
+    if (u.indexOf("https://cdn.bsky.app/") !== 0) { return u; }
+    return /@(jpeg|png|webp)$/.test(u) ? u.replace(/@webp$/, "@jpeg") : u + "@jpeg";
+  }
+  function adult(labels) { if (labels) { for (var k = 0; k < labels.length; k++) { if (ADULT[labels[k].val]) { return true; } } } return false; }
+  function rkey(uri) { return String(uri || "").split("/").pop(); }
+  function bMedia(o, e) {
+    var t = e && e.$type, k;
+    if (!t) { return; }
+    if (t === "app.bsky.embed.images#view") { o.imgs = []; for (k = 0; k < e.images.length; k++) { o.imgs.push({ thumb: bImg(e.images[k].thumb), full: bImg(e.images[k].fullsize), alt: e.images[k].alt }); } }
+    else if (t === "app.bsky.embed.video#view") { o.video = { thumb: safe(e.thumbnail), alt: e.alt }; }
+    else if (t === "app.bsky.embed.external#view" && e.external) { o.ext = { uri: safe(e.external.uri), title: e.external.title, desc: e.external.description, thumb: bImg(e.external.thumb) }; }
+    else if (t === "app.bsky.embed.record#view") { o.quote = bQuote(e.record); }
+    else if (t === "app.bsky.embed.recordWithMedia#view") { bMedia(o, e.media); o.quote = bQuote(e.record && e.record.record); }
+  }
+  function bQuote(r) {
+    if (!r || r.$type !== "app.bsky.embed.record#viewRecord" || !r.author) { return { missing: true }; }
+    var q = { name: r.author.displayName || r.author.handle, handle: "@" + r.author.handle, html: '<div class="pt">' + bText((r.value && r.value.text) || "", r.value && r.value.facets) + "</div>",
+      url: "https://bsky.app/profile/" + r.author.handle + "/post/" + rkey(r.uri), sensitive: adult(r.labels) };
+    if (r.embeds && r.embeds[0]) { bMedia(q, r.embeds[0]); q.quote = null; }
+    return q;
+  }
+  function bPost(p) {
+    var a = p.author || {}, rec = p.record || {}, o = {
+      net: "bsky", who: a.handle && a.handle !== "handle.invalid" ? a.handle : a.did, name: a.displayName || a.handle, handle: "@" + a.handle, avatar: bImg(a.avatar),
+      html: '<div class="pt">' + bText(rec.text || "", rec.facets) + "</div>", time: rec.createdAt || p.indexedAt,
+      url: "https://bsky.app/profile/" + a.handle + "/post/" + rkey(p.uri), counts: [p.replyCount, p.repostCount, p.likeCount],
+      sensitive: adult(p.labels) || adult(a.labels)
+    };
+    bMedia(o, p.embed);
+    return o;
+  }
+  function bItem(it) {
+    var o = bPost(it.post), by = it.reason && it.reason.by;
+    if (by && /reasonRepost$/.test(it.reason.$type || "")) { o.repost = by.displayName || by.handle; }
+    if (it.reply && it.reply.parent && it.reply.parent.author) { o.replyTo = "@" + it.reply.parent.author.handle; }
+    return o;
+  }
+
+  /* ---------- Mastodon ---------- */
+  function mBase() { return "https://" + cfg.inst + "/api/v1/"; }
+  function mHandle(a) { return "@" + a.acct + (a.acct.indexOf("@") < 0 ? "@" + cfg.inst : ""); }
+  function mMedia(o, s) {
+    var k, m, list = s.media_attachments || [];
+    for (k = 0; k < list.length; k++) {
+      m = list[k];
+      if (m.type === "image") { (o.imgs = o.imgs || []).push({ thumb: safe(m.preview_url), full: safe(m.url || m.remote_url), alt: m.description }); }
+      else if ((m.type === "video" || m.type === "gifv") && !o.video) { o.video = { thumb: safe(m.preview_url), alt: m.description }; }
+    }
+    if (s.card && safe(s.card.url)) { o.ext = { uri: safe(s.card.url), title: s.card.title, desc: s.card.description, thumb: safe(s.card.image) }; }
+  }
+  function mPost(s) {
+    var boost = null, a, o;
+    if (s.reblog) { boost = s.account.display_name || s.account.username; s = s.reblog; }
+    a = s.account;
+    o = { net: "masto", who: a.id, acct: a.acct, name: a.display_name || a.username, handle: mHandle(a), avatar: safe(a.avatar_static || a.avatar),
+      html: '<div class="ph">' + clean(s.content) + "</div>", time: s.created_at, url: safe(s.url) || safe(s.uri),
+      counts: [s.replies_count, s.reblogs_count, s.favourites_count], sensitive: !!s.sensitive, cw: s.spoiler_text, repost: boost };
+    mMedia(o, s);
+    if (s.quote && s.quote.quoted_status) {
+      var q = s.quote.quoted_status;
+      o.quote = { name: q.account.display_name || q.account.username, handle: mHandle(q.account), html: '<div class="ph">' + clean(q.content) + "</div>", url: safe(q.url) || safe(q.uri), sensitive: !!q.sensitive };
+      mMedia(o.quote, q);
+    }
+    return o;
+  }
+
+  /* ---------- Darstellung ---------- */
+  function avatar(u, name, big) {
+    var c = big ? "av big" : "av";
+    if (cfg.imgs && u) { return '<img class="' + c + '" src="' + esc(u) + '" alt="">'; }
+    return '<span class="' + c + '">' + esc(String(name || "?").charAt(0).toUpperCase()) + "</span>";
+  }
+  function img(u, alt, hide) { return u ? "<img " + (hide ? "data-src" : "src") + '="' + esc(u) + '" alt="' + esc(alt || "") + '">' : ""; }
+  function mediaHtml(o, link, hide) {
+    var h = "", k, list = o.imgs || [], hid = hide ? ' class="hid" hidden' : "";
+    if (list.length) {
+      h += '<div class="media' + (list.length === 1 ? " one" : "") + (hide ? " hid" : "") + '"' + (hide ? " hidden" : "") + ">";
+      for (k = 0; k < list.length && k < 4; k++) { h += '<a href="' + esc(list[k].full || list[k].thumb) + '" target="_blank" rel="noopener noreferrer">' + img(list[k].thumb, list[k].alt, hide) + "</a>"; }
+      h += "</div>";
+    }
+    if (o.video && o.video.thumb) {
+      h += '<div class="media one' + (hide ? " hid" : "") + '"' + (hide ? " hidden" : "") + '><a href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">' + img(o.video.thumb, o.video.alt, hide) + '<span class="vid">▶ Video – im Browser öffnen</span></a></div>';
+    } else if (o.video && link) {
+      h += '<p style="margin:8px 0 0"><a href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">▶ Video im Browser öffnen</a></p>';
+    }
+    if (o.ext && o.ext.uri) {
+      h += '<a class="ext" href="' + esc(o.ext.uri) + '" target="_blank" rel="noopener noreferrer">' + (o.ext.thumb ? "<span" + hid + ">" + img(o.ext.thumb, "", hide) + "</span>" : "") +
+        "<div><b>" + esc(o.ext.title || o.ext.uri) + "</b>" + (o.ext.desc ? "<small>" + esc(o.ext.desc.length > 160 ? o.ext.desc.slice(0, 157) + "…" : o.ext.desc) + "</small>" : "") + "<small>" + esc(o.ext.uri.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]) + "</small></div></a>";
+    }
+    return h;
+  }
+  function hasPics(o) { return !!((o.imgs && o.imgs.length) || (o.video && o.video.thumb) || (o.ext && o.ext.thumb) || (o.quote && hasPics(o.quote))); }
+  function postHtml(o) {
+    var sens = (o.sensitive || (o.quote && o.quote.sensitive)) && !cfg.sens, hide = sens || !cfg.imgs, body, h = '<div class="post">', q = o.quote;
+    if (o.repost) { h += '<div class="rp">' + ICON.rp.replace("<svg ", '<svg style="width:13px;height:13px;vertical-align:-2px" ') + " " + esc(o.repost) + " hat geteilt</div>"; }
+    if (o.replyTo) { h += '<div class="rp">Antwort an ' + esc(o.replyTo) + "</div>"; }
+    h += '<div class="au" data-net="' + o.net + '" data-who="' + esc(o.who) + '" data-acct="' + esc(o.acct || "") + '">' + avatar(o.avatar, o.name) +
+      '<div class="grow"><span class="nm">' + esc(o.name) + '</span><span class="hd">' + esc(o.handle) + " · " + ago(o.time) + "</span></div></div>";
+    body = o.html + mediaHtml(o, o.url, hide);
+    if (q) {
+      body += q.missing ? '<div class="quote muted">Zitierter Beitrag nicht verfügbar</div>' :
+        '<div class="quote"><b>' + esc(q.name) + '</b> <span class="muted">' + esc(q.handle) + "</span>" + q.html + mediaHtml(q, q.url, hide) + "</div>";
+    }
+    if (hide && hasPics(o)) { body += '<button class="btn text reveal-img">' + (sens ? "Sensibler Inhalt – Bilder anzeigen" : "Bilder anzeigen") + "</button>"; }
+    if (o.cw) { h += '<div class="pt"><b>' + esc(o.cw) + '</b></div><button class="btn text reveal">Inhalt anzeigen</button><div hidden>' + body + "</div>"; }
+    else { h += body; }
+    h += '<div class="pm"><span>' + ICON.re + num(o.counts[0]) + "</span><span>" + ICON.rp + num(o.counts[1]) + "</span><span>" + ICON.lk + num(o.counts[2]) + "</span>" +
+      (o.url ? '<a href="' + esc(o.url) + '" target="_blank" rel="noopener noreferrer">Öffnen</a>' : "") + "</div>";
+    return h + "</div>";
+  }
+  /* ein unerwartet aufgebauter Beitrag soll nicht die ganze Liste verhindern */
+  function mapSafe(arr, fn) { var out = [], k; arr = arr || []; for (k = 0; k < arr.length; k++) { try { out.push(fn(arr[k])); } catch (e) {} } return out; }
+  function showPosts(list, cursor, append) {
+    var h = "", k;
+    for (k = 0; k < list.length; k++) { try { h += postHtml(list[k]); } catch (e) {} }
+    if (append) { $("#feed").insertAdjacentHTML("beforeend", h); } else { $("#feed").innerHTML = h; }
+    page.cursor = cursor || null;
+    $("#more").hidden = !page.cursor || !list.length;
+    status(!list.length && !append ? "Keine Beiträge gefunden." : "");
+  }
+  function favBtn(kind, id, label) {
+    var on = isFav(kind, id);
+    return '<button class="btn text" id="favT" data-kind="' + kind + '" data-id="' + esc(id) + '" data-label="' + esc(label) + '">' + (on ? "★ Gemerkt" : "☆ Merken") + "</button>";
+  }
+  function profileHead(p) {
+    $("#head").innerHTML = '<div class="card"><div class="au" style="cursor:default">' + avatar(p.avatar, p.name, true) + '<div class="grow"><span class="nm">' + esc(p.name) + '</span><span class="hd">' + esc(p.handle) + "</span></div></div>" +
+      (p.bio ? '<div class="' + (p.bioHtml ? "ph" : "pt") + '">' + p.bio + "</div>" : "") +
+      '<div class="cnt"><span><b>' + num(p.posts) + "</b> Beiträge</span><span><b>" + num(p.followers) + "</b> Follower</span><span><b>" + num(p.follows) + "</b> folgt</span></div>" +
+      '<div class="row mt" style="margin-bottom:-8px">' + favBtn("profile", p.id, p.handle) + (p.url ? '<a class="btn text" href="' + esc(p.url) + '" target="_blank" rel="noopener noreferrer">Im Browser öffnen</a>' : "") + "</div></div>";
+  }
+
+  /* ---------- Merkliste ---------- */
+  function isFav(kind, id) {
+    for (var k = 0; k < favs.length; k++) { var f = favs[k]; if (f.net === cfg.net && f.kind === kind && f.id === id && (f.net !== "masto" || f.inst === cfg.inst)) { return k; } }
+    return false;
+  }
+  function toggleFav(kind, id, label) {
+    var k = isFav(kind, id);
+    if (k !== false) { favs.splice(k, 1); toast("Aus der Merkliste entfernt"); }
+    else { favs.push({ net: cfg.net, kind: kind, id: id, label: label, inst: cfg.net === "masto" ? cfg.inst : "" }); toast("Gemerkt"); }
+    store.set("social.favs", favs); drawFavs();
+  }
+  function drawFavs() {
+    var h = "", k, f;
+    for (k = 0; k < favs.length; k++) {
+      f = favs[k]; if (f.net !== cfg.net) { continue; }
+      h += '<button data-k="' + k + '">' + esc(f.kind === "tag" ? "#" + f.label : f.label) + (f.inst && f.inst !== cfg.inst ? " (" + esc(f.inst) + ")" : "") + "</button>";
+    }
+    $("#favs").innerHTML = h; $("#favs").hidden = !h;
+    var t = $("#favT"); if (t) { t.textContent = isFav(t.getAttribute("data-kind"), t.getAttribute("data-id")) !== false ? "★ Gemerkt" : "☆ Merken"; }
+  }
+
+  /* ---------- Bluesky: Laden ---------- */
+  function fail(my, e) { if (my === seq) { status(errText(e), true); $("#more").hidden = true; } }
+  function begin(append) { var my = ++seq; status("Lade …"); if (!append) { $("#feed").innerHTML = ""; $("#more").hidden = true; } return my; }
+  function cur(append, name) { return append && page.cursor ? "&" + name + "=" + enc(page.cursor) : ""; }
+  function bDiscover(append) {
+    var my = begin(append);
+    if (!append) { $("#head").innerHTML = '<p class="muted" style="font-size:14px;margin:0 0 10px">„Entdecken“ ist der öffentliche Feed „Discover“ von Bluesky (überwiegend englisch).</p>'; }
+    req("GET", PUB + "app.bsky.feed.getFeed?feed=" + enc(DISCOVER) + "&limit=25" + cur(append, "cursor"), null, null, function (e, j) {
+      if (my !== seq) { return; }
+      if (e || !j) { fail(my, e || {}); return; }
+      showPosts(mapSafe(j.feed, bItem), j.cursor, append);
+    });
+  }
+  function bHandle(v) {
+    v = trim(v).replace(/^@/, "").replace(/^https?:\/\/bsky\.app\/profile\//i, "").split(/[\/?#]/)[0];
+    if (/^did:[a-z]+:[A-Za-z0-9._:%\-]+$/.test(v)) { return v; }
+    v = v.toLowerCase();
+    if (v && v.indexOf(".") < 0) { v += ".bsky.social"; }
+    return /^[a-z0-9]([a-z0-9\-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]*[a-z0-9])?)+$/.test(v) ? v : "";
+  }
+  function bProfile(append, actor) {
+    actor = actor || page.actor;
+    if (!actor) { $("#head").innerHTML = ""; status("Gib oben ein Bluesky-Handle ein, z. B. bsky.app."); return; }
+    page.actor = actor;
+    var my = begin(append);
+    function feed() {
+      req("GET", PUB + "app.bsky.feed.getAuthorFeed?actor=" + enc(actor) + "&limit=25&filter=posts_and_author_threads" + cur(append, "cursor"), null, null, function (e, j) {
+        if (my !== seq) { return; }
+        if (e || !j) { fail(my, e || {}); return; }
+        showPosts(mapSafe(j.feed, bItem), j.cursor, append);
+      });
+    }
+    if (append) { feed(); return; }
+    $("#head").innerHTML = "";
+    req("GET", PUB + "app.bsky.actor.getProfile?actor=" + enc(actor), null, null, function (e, p) {
+      if (my !== seq) { return; }
+      if (e || !p) { fail(my, e || {}); return; }
+      profileHead({ id: p.handle, name: p.displayName || p.handle, handle: "@" + p.handle, avatar: bImg(p.avatar), bio: p.description ? esc(p.description) : "",
+        posts: p.postsCount, followers: p.followersCount, follows: p.followsCount, url: "https://bsky.app/profile/" + p.handle });
+      feed();
+    });
+  }
+  function bAuth(method, nsid, body, cb, retried) {
+    if (!sess) { cb({ status: 401, de: true, message: "Nicht angemeldet." }); return; }
+    req(method, sess.pds + "/xrpc/" + nsid, body, sess.access, function (e, j) {
+      if (e && !retried && (e.error === "ExpiredToken" || e.error === "InvalidToken" || e.status === 401)) {
+        req("POST", sess.pds + "/xrpc/com.atproto.server.refreshSession", null, sess.refresh, function (e2, s) {
+          if (e2 || !s || !s.accessJwt) { bForget(); cb({ status: 401, de: true, message: "Sitzung abgelaufen – bitte neu anmelden." }); return; }
+          sess.access = s.accessJwt; sess.refresh = s.refreshJwt || sess.refresh; sess.handle = s.handle || sess.handle;
+          store.set("social.bsky", sess);
+          bAuth(method, nsid, body, cb, true);
+        });
+        return;
+      }
+      cb(e, j);
+    });
+  }
+  function bTimeline(append) {
+    if (!sess) { cfg.bView = "account"; saveCfg(); toast("Für die Timeline bitte anmelden"); go(); return; }
+    var my = begin(append);
+    if (!append) { $("#head").innerHTML = ""; }
+    bAuth("GET", "app.bsky.feed.getTimeline?limit=25" + cur(append, "cursor"), null, function (e, j) {
+      if (my !== seq) { return; }
+      if (e || !j) { fail(my, e || {}); if (!sess) { drawViews(); } return; }
+      showPosts(mapSafe(j.feed, bItem), j.cursor, append);
+    });
+  }
+  function bAccount(append) {
+    if (append) { bProfile(true); return; }
+    if (!sess) {
+      $("#head").innerHTML = '<div class="card"><h3>Bei Bluesky anmelden</h3>' +
+        '<p class="muted" style="font-size:14px;margin:0">Bitte ein <b>App-Passwort</b> verwenden, nicht dein normales Passwort. Du legst es in den Bluesky-Einstellungen unter „App-Passwörter“ an und kannst es dort jederzeit widerrufen.</p>' +
+        '<label class="fld" for="bId">Handle oder E-Mail</label><input type="text" id="bId" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="name.bsky.social">' +
+        '<label class="fld" for="bPw">App-Passwort</label><input type="password" id="bPw" autocomplete="off" placeholder="xxxx-xxxx-xxxx-xxxx">' +
+        '<label class="fld" for="bHost">Server</label><input type="text" id="bHost" autocapitalize="off" autocorrect="off" spellcheck="false" value="bsky.social">' +
+        '<div class="row mt" style="margin-bottom:-8px"><button class="btn" id="bLogin">Anmelden</button></div></div>';
+      $("#feed").innerHTML = ""; $("#more").hidden = true; status("");
+      $("#bLogin").onclick = bLogin;
+      return;
+    }
+    $("#head").innerHTML = '<div class="card"><h3>Angemeldet als @' + esc(sess.handle) + "</h3>" +
+      '<label class="fld" for="bPost">Neuer Beitrag (öffentlich)</label><textarea id="bPost" rows="4"></textarea>' +
+      '<div class="flex mt"><span class="grow muted" id="bCnt" style="font-size:14px">0 / 300</span><button class="btn" id="bSend">Veröffentlichen</button></div>' +
+      '<p class="muted" style="font-size:13px;margin:8px 0 0">Links und #Hashtags werden erkannt. @-Erwähnungen erscheinen als normaler Text.</p>' +
+      '<div class="row mt" style="margin-bottom:-8px"><button class="btn tonal" id="bTl">Meine Timeline</button><button class="btn text" id="bOut">Abmelden</button></div></div>' +
+      '<h2 style="margin-top:16px">Meine Beiträge</h2>';
+    $("#bPost").oninput = function () { var n = glen(this.value); $("#bCnt").textContent = n + " / 300"; $("#bCnt").className = "grow " + (n > 300 ? "err" : "muted"); };
+    $("#bSend").onclick = bSend;
+    $("#bTl").onclick = function () { cfg.bView = "timeline"; saveCfg(); go(); };
+    $("#bOut").onclick = bLogout;
+    page.actor = sess.did;
+    var my = begin(false);
+    req("GET", PUB + "app.bsky.feed.getAuthorFeed?actor=" + enc(sess.did) + "&limit=25", null, null, function (e, j) {
+      if (my !== seq) { return; }
+      if (e || !j) { fail(my, e || {}); return; }
+      showPosts(mapSafe(j.feed, bItem), j.cursor, false);
+    });
+  }
+  function host(v) { v = trim(v).replace(/^https?:\/\//i, "").split(/[\/?#]/)[0].toLowerCase(); return /^[a-z0-9\-]+(\.[a-z0-9\-]+)+(:\d+)?$/.test(v) ? v : ""; }
+  function pdsOf(s, h) {
+    var d = s.didDoc, k, sv;
+    if (d && d.service) { for (k = 0; k < d.service.length; k++) { sv = d.service[k]; if ((sv.id === "#atproto_pds" || sv.type === "AtprotoPersonalDataServer") && /^https:\/\//.test(sv.serviceEndpoint || "")) { return sv.serviceEndpoint.replace(/\/+$/, ""); } } }
+    return "https://" + h;
+  }
+  function bLogin() {
+    var id = trim($("#bId").value).replace(/^@/, ""), pw = $("#bPw").value, h = host($("#bHost").value);
+    if (!id || !pw) { toast("Bitte Handle und App-Passwort eingeben"); return; }
+    if (!h) { toast("Server ungültig"); return; }
+    if (!/^[a-z0-9]{4}(-[a-z0-9]{4}){3}$/i.test(pw) && !confirm("Das sieht nicht wie ein App-Passwort aus (Form xxxx-xxxx-xxxx-xxxx). Bitte nutze ein App-Passwort statt deines Hauptpassworts. Trotzdem fortfahren?")) { return; }
+    $("#bLogin").disabled = true; status("Melde an …");
+    req("POST", "https://" + h + "/xrpc/com.atproto.server.createSession", { identifier: id, password: pw }, null, function (e, s) {
+      var pwEl = $("#bPw"); if (pwEl) { pwEl.value = ""; }
+      if ($("#bLogin")) { $("#bLogin").disabled = false; }
+      if (e || !s || !s.accessJwt) {
+        e = e || {};
+        status(e.error === "AuthFactorTokenRequired" ? "Dieses Konto verlangt eine zusätzliche Bestätigung. Bitte ein App-Passwort verwenden." :
+          e.status === 401 ? "Anmeldung fehlgeschlagen: Handle/E-Mail oder App-Passwort stimmt nicht." : errText(e), true);
+        return;
+      }
+      sess = { did: s.did, handle: s.handle, access: s.accessJwt, refresh: s.refreshJwt, pds: pdsOf(s, h) };
+      store.set("social.bsky", sess); toast("Angemeldet als @" + s.handle);
+      cfg.bView = "timeline"; saveCfg(); go();
+    });
+  }
+  function bForget() { sess = null; store.set("social.bsky", null); }
+  function bLogout() {
+    if (sess) { req("POST", sess.pds + "/xrpc/com.atproto.server.deleteSession", null, sess.refresh, function () {}); }
+    bForget(); toast("Abgemeldet"); go();
+  }
+  function bSend() {
+    var text = trim($("#bPost").value), rec, f;
+    if (!text) { toast("Bitte einen Text eingeben"); return; }
+    if (glen(text) > 300) { toast("Höchstens 300 Zeichen"); return; }
+    if (!confirm("Diesen Beitrag öffentlich auf Bluesky veröffentlichen?")) { return; }
+    rec = { $type: "app.bsky.feed.post", text: text, createdAt: new Date().toISOString(), langs: ["de"] };
+    f = makeFacets(text); if (f.length) { rec.facets = f; }
+    $("#bSend").disabled = true;
+    bAuth("POST", "com.atproto.repo.createRecord", { repo: sess.did, collection: "app.bsky.feed.post", record: rec }, function (e) {
+      if ($("#bSend")) { $("#bSend").disabled = false; }
+      if (e) { status("Senden fehlgeschlagen: " + errText(e), true); if (!sess) { go(); } return; }
+      $("#bPost").value = ""; $("#bPost").oninput.call($("#bPost"));
+      toast("Beitrag veröffentlicht");
+      setTimeout(function () { if (cfg.net === "bsky" && cfg.bView === "account") { go(); } }, 1500);
+    });
+  }
+
+  /* ---------- Mastodon: Laden ---------- */
+  function mList(my, append, url, nextOf) {
+    req("GET", url, null, null, function (e, j) {
+      if (my !== seq) { return; }
+      if (e || !j) { fail(my, e || {}); return; }
+      if (!(j instanceof Array)) { fail(my, { status: 0, message: "Unerwartete Antwort der Instanz." }); return; }
+      showPosts(mapSafe(j, mPost), j.length ? nextOf(j) : null, append);
+    });
+  }
+  function mTrends(append) {
+    var my = begin(append), off = append && page.cursor ? +page.cursor : 0;
+    if (!append) { $("#head").innerHTML = '<p class="muted" style="font-size:14px;margin:0 0 10px">Beiträge, die auf <b>' + esc(cfg.inst) + "</b> gerade viel geteilt werden.</p>"; }
+    mList(my, append, mBase() + "trends/statuses?limit=20&offset=" + off, function (j) { return String(off + j.length); });
+  }
+  function mTag(append, tag) {
+    tag = tag || page.tag;
+    if (!tag) { $("#head").innerHTML = ""; status("Gib oben einen Hashtag ein, z. B. datenschutz."); return; }
+    page.tag = tag;
+    var my = begin(append);
+    if (!append) { $("#head").innerHTML = '<div class="row" style="margin-bottom:0"><h2 style="margin:0 8px 8px 0">#' + esc(tag) + " auf " + esc(cfg.inst) + "</h2>" + favBtn("tag", tag.toLowerCase(), tag) + "</div>"; }
+    mList(my, append, mBase() + "timelines/tag/" + enc(tag) + "?limit=20" + cur(append, "max_id"), function (j) { return j[j.length - 1].id; });
+  }
+  function mAcctOf(v) {
+    var m;
+    v = trim(v);
+    m = /^https?:\/\/([^\/]+)\/@([A-Za-z0-9_]+)/.exec(v);
+    if (m) { v = m[2] + "@" + m[1]; }
+    v = v.replace(/^@/, "");
+    if (v.indexOf("@") > 0 && v.split("@")[1].toLowerCase() === cfg.inst) { v = v.split("@")[0]; }
+    return /^[A-Za-z0-9_]+(@[A-Za-z0-9.\-]+)?$/.test(v) ? v : "";
+  }
+  function mProfile(append, acct, id) {
+    var my;
+    if (append) { my = begin(true); mList(my, true, mBase() + "accounts/" + enc(page.acctId) + "/statuses?limit=20&exclude_replies=true" + cur(true, "max_id"), function (j) { return j[j.length - 1].id; }); return; }
+    if (!acct && !id) { $("#head").innerHTML = ""; status("Gib oben ein Profil ein, z. B. Mastodon oder name@instanz.social."); return; }
+    my = begin(false); $("#head").innerHTML = "";
+    req("GET", id ? mBase() + "accounts/" + enc(id) : mBase() + "accounts/lookup?acct=" + enc(acct), null, null, function (e, a) {
+      if (my !== seq) { return; }
+      if (e || !a || !a.id) {
+        if (e && e.status === 404) { status("Profil nicht gefunden. Konten anderer Instanzen findest du, wenn du oben deren Instanz einträgst.", true); return; }
+        fail(my, e || {}); return;
+      }
+      page.acctId = a.id;
+      profileHead({ id: a.acct, name: a.display_name || a.username, handle: mHandle(a), avatar: safe(a.avatar_static || a.avatar), bio: clean(a.note), bioHtml: true,
+        posts: a.statuses_count, followers: a.followers_count, follows: a.following_count, url: safe(a.url) });
+      mList(my, false, mBase() + "accounts/" + enc(a.id) + "/statuses?limit=20&exclude_replies=true", function (j) { return j[j.length - 1].id; });
+    });
+  }
+
+  /* ---------- Steuerung ---------- */
+  function view() { return cfg.net === "bsky" ? cfg.bView : cfg.mView; }
+  function drawViews() {
+    var bs = $$("#net button"), k, v = view(), list = VIEWS[cfg.net], h = "", q;
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", bs[k].getAttribute("data-n") === cfg.net ? "true" : "false"); }
+    for (k = 0; k < list.length; k++) { h += '<button data-v="' + list[k][0] + '" aria-pressed="' + (list[k][0] === v ? "true" : "false") + '">' + (list[k][0] === "account" && sess ? "@" + esc(sess.handle) : list[k][1]) + "</button>"; }
+    $("#views").innerHTML = h;
+    $("#instRow").hidden = cfg.net !== "masto"; $("#inst").value = cfg.inst;
+    q = (cfg.net === "bsky" && v === "profile") || (cfg.net === "masto" && (v === "tag" || v === "profile"));
+    $("#qRow").hidden = !q;
+    if (q) {
+      $("#q").placeholder = cfg.net === "bsky" ? "Handle, z. B. bsky.app" : v === "tag" ? "Hashtag, z. B. datenschutz" : "Profil, z. B. Mastodon oder name@instanz";
+      $("#q").value = cfg.net === "bsky" ? cfg.bQ : v === "tag" ? cfg.mTag : cfg.mAcct;
+    }
+    $("#optImg").setAttribute("aria-pressed", cfg.imgs ? "true" : "false");
+    $("#optSens").setAttribute("aria-pressed", cfg.sens ? "true" : "false");
+    drawFavs();
+  }
+  function go() {
+    var v = view();
+    drawViews();
+    $("#gate").hidden = cfg.ok;
+    if (!cfg.ok) { $("#head").innerHTML = ""; $("#feed").innerHTML = ""; $("#more").hidden = true; status(""); return; }
+    page = { fn: null, cursor: null };
+    if (cfg.net === "bsky") {
+      page.fn = v === "profile" ? bProfile : v === "timeline" ? bTimeline : v === "account" ? bAccount : bDiscover;
+      if (v === "profile") { bProfile(false, bHandle(cfg.bQ)); } else { page.fn(false); }
+    } else {
+      page.fn = v === "tag" ? mTag : v === "profile" ? mProfile : mTrends;
+      if (v === "tag") { mTag(false, cfg.mTag); } else if (v === "profile") { mProfile(false, mAcctOf(cfg.mAcct)); } else { mTrends(false); }
+    }
+  }
+  function submitQ() {
+    var v = view(), raw = trim($("#q").value), val;
+    if (cfg.net === "bsky") { val = bHandle(raw); if (!val) { toast("Ungültiges Handle"); return; } cfg.bQ = val; }
+    else if (v === "tag") { val = raw.replace(/^#/, ""); if (!val || /[\s#\/?&]/.test(val)) { toast("Ungültiger Hashtag"); return; } cfg.mTag = val; }
+    else { val = mAcctOf(raw); if (!val) { toast("Ungültiges Profil"); return; } cfg.mAcct = val; }
+    saveCfg(); go();
+  }
+  function toTop() { var y = $("#views").getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0) - 8; if (y < (window.pageYOffset || 0)) { window.scrollTo(0, y); } }
+
+  $("#net").onclick = function (e) { var b = closest(e.target, "button"); if (b) { cfg.net = b.getAttribute("data-n"); saveCfg(); go(); } };
+  $("#views").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    if (cfg.net === "bsky") { cfg.bView = b.getAttribute("data-v"); } else { cfg.mView = b.getAttribute("data-v"); }
+    saveCfg(); go();
+  };
+  $("#qGo").onclick = submitQ;
+  $("#q").onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); submitQ(); } };
+  $("#instGo").onclick = function () { var h = host($("#inst").value); if (!h) { toast("Instanz ungültig"); return; } cfg.inst = h; saveCfg(); go(); };
+  $("#inst").onkeydown = function (e) { if (e.keyCode === 13) { e.preventDefault(); $("#instGo").onclick(); } };
+  $("#gateOk").onclick = function () { cfg.ok = true; saveCfg(); go(); };
+  $("#more").onclick = function () { if (page.fn && page.cursor) { page.fn(true); } };
+  $("#optImg").onclick = function () { cfg.imgs = !cfg.imgs; saveCfg(); go(); };
+  $("#optSens").onclick = function () { cfg.sens = !cfg.sens; saveCfg(); go(); };
+  $("#favs").onclick = function (e) {
+    var b = closest(e.target, "button"), f; if (!b) { return; }
+    f = favs[parseInt(b.getAttribute("data-k"), 10)]; if (!f) { return; }
+    if (f.net === "bsky") { cfg.bView = "profile"; cfg.bQ = f.id; }
+    else { if (f.inst) { cfg.inst = f.inst; } if (f.kind === "tag") { cfg.mView = "tag"; cfg.mTag = f.label; } else { cfg.mView = "profile"; cfg.mAcct = f.id; } }
+    saveCfg(); go();
+  };
+  $("#head").onclick = function (e) { var b = closest(e.target, "#favT"); if (b) { toggleFav(b.getAttribute("data-kind"), b.getAttribute("data-id"), b.getAttribute("data-label")); } };
+  $("#feed").onclick = function (e) {
+    var b, p, k, im;
+    if ((b = closest(e.target, ".reveal"))) { b.nextSibling.hidden = false; b.parentNode.removeChild(b); return; }
+    if ((b = closest(e.target, ".reveal-img"))) {
+      p = closest(b, ".post"); im = $$(".hid", p);
+      for (k = 0; k < im.length; k++) { im[k].hidden = false; }
+      im = $$("img[data-src]", p);
+      for (k = 0; k < im.length; k++) { im[k].src = im[k].getAttribute("data-src"); im[k].removeAttribute("data-src"); }
+      b.parentNode.removeChild(b); return;
+    }
+    if ((b = closest(e.target, "[data-bsky]"))) { e.preventDefault(); cfg.net = "bsky"; cfg.bView = "profile"; cfg.bQ = b.getAttribute("data-bsky"); saveCfg(); go(); toTop(); return; }
+    if ((b = closest(e.target, "[data-mtag]"))) { e.preventDefault(); cfg.mView = "tag"; cfg.mTag = b.getAttribute("data-mtag"); saveCfg(); go(); toTop(); return; }
+    if (closest(e.target, "a")) { return; }
+    if ((b = closest(e.target, "[data-who]"))) {
+      if (b.getAttribute("data-net") === "bsky") { cfg.bView = "profile"; cfg.bQ = b.getAttribute("data-who"); saveCfg(); go(); }
+      else { cfg.mView = "profile"; cfg.mAcct = b.getAttribute("data-acct"); saveCfg(); drawViews(); page = { fn: mProfile, cursor: null }; mProfile(false, null, b.getAttribute("data-who")); }
+      toTop();
+    }
+  };
+  go();
+})();
+</script>
+</body>
+</html>

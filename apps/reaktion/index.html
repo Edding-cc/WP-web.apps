@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Reaktionstest · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#rPad { height: 280px; border-radius: 16px; display: -ms-flexbox; display: flex; -ms-flex-align: center; align-items: center; -ms-flex-pack: center; justify-content: center; text-align: center; cursor: pointer; padding: 16px; -ms-user-select: none; user-select: none; margin-bottom: 12px; }
+#rPad b { display: block; font-size: 40px; line-height: 1.1; }
+#rPad span { display: block; font-size: 16px; margin-top: 8px; }
+#rPad.wait { background: #c0362c !important; color: #fff; }
+#rPad.go { background: #2e9d48 !important; color: #fff; }
+#rTries span { display: inline-block; margin: 0 6px 6px 0; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Reaktionstest</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="stats"><div><b id="rAvg">–</b><span>Schnitt (ms)</span></div><div><b id="rBest">–</b><span>Bester Schnitt</span></div><div><b id="rTop">–</b><span>Schnellster</span></div></div>
+<div id="rPad" class="bg-sf2"><div><b id="rBig">Start</b><span id="rSmall">Tippe hier, um zu beginnen</span></div></div>
+<div class="card"><h3>Diese Serie</h3><div id="rTries" class="mono"></div></div>
+<div class="ctl c2"><button id="rRestart" class="tonal">Serie neu</button><button id="rClear" class="tonal">Rekorde löschen</button></div>
+<p class="muted help" style="font-size:14px">Wenn das Feld rot wird, warte. Sobald es grün wird, tippe so schnell du kannst. Fünf Versuche ergeben einen Schnitt. Die Zeit enthält auch die Verzögerung von Bildschirm und Touch, Werte sind also zwischen Geräten nur grob vergleichbar.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var ROUNDS = 5;
+  var raf = window.requestAnimationFrame || window.msRequestAnimationFrame || function (f) { return setTimeout(f, 16); };
+  var perf = window.performance && window.performance.now ? window.performance : null;
+  var rec = store.get("react.rec", { avg: 0, top: 0 });
+  var state = "idle", tries = [], t0 = 0, timer = 0, pad = $("#rPad");
+
+  function now() { return perf ? perf.now() : +new Date(); }
+  function show(cls, big, small) { pad.className = cls || "bg-sf2"; $("#rBig").textContent = big; $("#rSmall").textContent = small; }
+  function avg() { var s = 0, k; for (k = 0; k < tries.length; k++) { s += tries[k]; } return tries.length ? Math.round(s / tries.length) : 0; }
+  function hud() {
+    var h = "", k;
+    for (k = 0; k < ROUNDS; k++) { h += '<span class="badge">' + (k + 1) + ": " + (tries[k] != null ? tries[k] + " ms" : "–") + "</span>"; }
+    $("#rTries").innerHTML = h;
+    $("#rAvg").textContent = tries.length ? avg() : "–";
+    $("#rBest").textContent = rec.avg || "–"; $("#rTop").textContent = rec.top || "–";
+  }
+  function arm() {
+    state = "wait"; show("wait", "Warten …", "Tippe erst, wenn es grün wird");
+    timer = setTimeout(function () {
+      state = "go"; show("go", "Jetzt!", "Tippen!");
+      /* Startzeit erst beim nächsten Bild, also wenn Grün wirklich angezeigt wird */
+      raf(function () { t0 = now(); });
+      if (!t0) { t0 = now(); }
+    }, 1500 + rnd(3000));
+    t0 = 0;
+  }
+  function tap() {
+    var ms;
+    if (state === "idle" || state === "result" || state === "early") {
+      if (tries.length >= ROUNDS) { tries = []; hud(); }
+      arm(); return;
+    }
+    if (state === "wait") {
+      clearTimeout(timer); state = "early";
+      show("", "Zu früh!", "Tippe, um diesen Versuch zu wiederholen"); return;
+    }
+    if (state === "go") {
+      ms = Math.round(now() - t0); tries.push(ms); state = "result";
+      if (!rec.top || ms < rec.top) { rec.top = ms; }
+      if (tries.length >= ROUNDS) {
+        var a = avg();
+        if (!rec.avg || a < rec.avg) { rec.avg = a; toast("Neuer Bestwert!"); }
+        show("", a + " ms", "Schnitt aus " + ROUNDS + " Versuchen – tippe für eine neue Serie");
+      } else {
+        show("", ms + " ms", "Versuch " + tries.length + " von " + ROUNDS + " – tippe für den nächsten");
+      }
+      store.set("react.rec", rec); hud();
+    }
+  }
+  onPress(pad, tap);
+  document.addEventListener("keydown", function (e) { if (e.keyCode === 32 || e.keyCode === 13) { e.preventDefault(); tap(); } }, false);
+  $("#rRestart").onclick = function () { clearTimeout(timer); tries = []; state = "idle"; show("", "Start", "Tippe hier, um zu beginnen"); hud(); };
+  $("#rClear").onclick = function () { rec = { avg: 0, top: 0 }; store.set("react.rec", rec); hud(); };
+  hud();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Reversi · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#cv { display: block; cursor: pointer; border-radius: 12px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Reversi</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="rMode"><button data-m="easy">Leicht</button><button data-m="mid">Mittel</button><button data-m="hard">Schwer</button><button data-m="two">2 Spieler</button></div>
+<div class="stats"><div><b id="rA">2</b><span id="rAl">Du (Schwarz)</span></div><div><b id="rB">2</b><span id="rBl">Computer (Weiß)</span></div></div>
+<div class="board" id="rBoard"><canvas id="cv"></canvas></div>
+<p class="center" id="rMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c2"><button id="rNew" class="ac">Neues Spiel</button><button id="rHint" class="tonal">Züge zeigen</button></div>
+<p class="muted" style="font-size:14px" id="rRec"></p>
+<p class="muted help" style="font-size:14px">Setze einen Stein so, dass du gegnerische Steine waagerecht, senkrecht oder schräg einschließt – sie werden zu deinen. Wer am Ende mehr Steine hat, gewinnt. Kann jemand nicht ziehen, muss er passen.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var N = 8, DIRS = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+  var WT = [
+    120, -20, 20, 5, 5, 20, -20, 120,
+    -20, -40, -5, -5, -5, -5, -40, -20,
+    20, -5, 15, 3, 3, 15, -5, 20,
+    5, -5, 3, 3, 3, 3, -5, 5,
+    5, -5, 3, 3, 3, 3, -5, 5,
+    20, -5, 15, 3, 3, 15, -5, 20,
+    -20, -40, -5, -5, -5, -5, -40, -20,
+    120, -20, 20, 5, 5, 20, -20, 120
+  ];
+  var mode = store.get("rev.mode", "mid"), rec = store.get("rev.rec", { w: 0, l: 0, d: 0 }), hints = store.get("rev.hints", true);
+  var cv = $("#cv"), ctx = cv.getContext("2d"), cs = 0;
+  var b, turn, over, last, busy = false;
+
+  function flips(bd, i, p) {
+    if (bd[i]) { return []; }
+    var x = i % N, y = (i - x) / N, out = [], d, nx, ny, line, q = 3 - p;
+    for (d = 0; d < 8; d++) {
+      line = []; nx = x + DIRS[d][0]; ny = y + DIRS[d][1];
+      while (nx >= 0 && nx < N && ny >= 0 && ny < N && bd[ny * N + nx] === q) { line.push(ny * N + nx); nx += DIRS[d][0]; ny += DIRS[d][1]; }
+      if (line.length && nx >= 0 && nx < N && ny >= 0 && ny < N && bd[ny * N + nx] === p) { out = out.concat(line); }
+    }
+    return out;
+  }
+  function movesFor(bd, p) {
+    var out = [], i, f;
+    for (i = 0; i < N * N; i++) { if (!bd[i]) { f = flips(bd, i, p); if (f.length) { out.push({ i: i, f: f }); } } }
+    return out;
+  }
+  function apply(bd, m, p) { var nb = bd.slice(), k; nb[m.i] = p; for (k = 0; k < m.f.length; k++) { nb[m.f[k]] = p; } return nb; }
+  function count(bd) { var a = 0, c = 0, i; for (i = 0; i < bd.length; i++) { if (bd[i] === 1) { a++; } else if (bd[i] === 2) { c++; } } return [a, c]; }
+  /* Bewertung aus Sicht von p: Feldgewichte, Beweglichkeit, am Ende nur Steinzahl */
+  function evaluate(bd, p) {
+    var q = 3 - p, s = 0, i, mp, mq, n;
+    mp = movesFor(bd, p).length; mq = movesFor(bd, q).length;
+    if (!mp && !mq) { n = count(bd); s = (p === 1 ? n[0] - n[1] : n[1] - n[0]); return s > 0 ? 10000 + s : s < 0 ? -10000 + s : 0; }
+    for (i = 0; i < N * N; i++) { if (bd[i] === p) { s += WT[i]; } else if (bd[i] === q) { s -= WT[i]; } }
+    return s + (mp - mq) * 8;
+  }
+  function search(bd, depth, alpha, beta, p) {
+    var ms = movesFor(bd, p), best = -Infinity, k, v;
+    if (depth === 0) { return evaluate(bd, p); }
+    if (!ms.length) {
+      if (!movesFor(bd, 3 - p).length) { return evaluate(bd, p); }
+      return -search(bd, depth - 1, -beta, -alpha, 3 - p);
+    }
+    ms.sort(function (m1, m2) { return WT[m2.i] - WT[m1.i]; });
+    for (k = 0; k < ms.length; k++) {
+      v = -search(apply(bd, ms[k], p), depth - 1, -beta, -alpha, 3 - p);
+      if (v > best) { best = v; }
+      if (best > alpha) { alpha = best; }
+      if (alpha >= beta) { break; }
+    }
+    return best;
+  }
+  function cpuMove() {
+    var ms = movesFor(b, 2), k, v, best = -Infinity, pick = ms[0], depth = mode === "hard" ? 4 : 2;
+    if (mode === "easy") {
+      if (rnd(100) < 50) { return ms[rnd(ms.length)]; }
+      for (k = 0; k < ms.length; k++) { v = WT[ms[k].i] + rnd(30); if (v > best) { best = v; pick = ms[k]; } }
+      return pick;
+    }
+    ms.sort(function (m1, m2) { return WT[m2.i] - WT[m1.i]; });
+    for (k = 0; k < ms.length; k++) {
+      v = -search(apply(b, ms[k], 2), depth - 1, -Infinity, -best, 1);
+      if (v > best) { best = v; pick = ms[k]; }
+    }
+    return pick;
+  }
+
+  function size() {
+    var W = fitWidth(420, 1, $("#rBoard")), r = window.devicePixelRatio || 1;
+    cs = W / N;
+    cv.style.width = cv.style.height = W + "px"; $("#rBoard").style.width = W + "px";
+    cv.width = cv.height = Math.round(W * r);
+    ctx.setTransform(r, 0, 0, r, 0, 0);
+    draw();
+  }
+  function draw() {
+    var t = getTheme(), W = cs * N, i, x, y, v, ms = (hints && !over && !cpuTurn()) ? movesFor(b, turn) : [];
+    ctx.fillStyle = "#1e7a46"; ctx.fillRect(0, 0, W, W);
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1;
+    for (i = 1; i < N; i++) {
+      ctx.beginPath(); ctx.moveTo(i * cs, 0); ctx.lineTo(i * cs, W); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * cs); ctx.lineTo(W, i * cs); ctx.stroke();
+    }
+    for (i = 0; i < N * N; i++) {
+      v = b[i]; if (!v) { continue; }
+      x = (i % N + 0.5) * cs; y = (Math.floor(i / N) + 0.5) * cs;
+      ctx.fillStyle = v === 1 ? "#141414" : "#f4f4f4";
+      ctx.beginPath(); ctx.arc(x, y, cs * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.stroke();
+      if (i === last) { ctx.fillStyle = t.err; ctx.beginPath(); ctx.arc(x, y, cs * 0.09, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.fillStyle = turn === 1 ? "rgba(0,0,0,.35)" : "rgba(255,255,255,.45)";
+    for (i = 0; i < ms.length; i++) {
+      x = (ms[i].i % N + 0.5) * cs; y = (Math.floor(ms[i].i / N) + 0.5) * cs;
+      ctx.beginPath(); ctx.arc(x, y, cs * 0.12, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  function cpuTurn() { return mode !== "two" && turn === 2; }
+  function name(p) { return mode === "two" ? (p === 1 ? "Schwarz" : "Weiß") : (p === 1 ? "Du" : "Der Computer"); }
+  function labels() {
+    var n = count(b), two = mode === "two", bs = $$("#rMode button"), k;
+    $("#rA").textContent = n[0]; $("#rB").textContent = n[1];
+    $("#rAl").textContent = two ? "Schwarz" : "Du (Schwarz)";
+    $("#rBl").textContent = two ? "Weiß" : "Computer (Weiß)";
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", bs[k].getAttribute("data-m") === mode ? "true" : "false"); }
+    $("#rHint").textContent = hints ? "Züge verbergen" : "Züge zeigen";
+    $("#rRec").textContent = two ? "" : "Bilanz gegen den Computer: " + rec.w + " Siege, " + rec.l + " Niederlagen, " + rec.d + " Unentschieden";
+  }
+  function msg(s) { $("#rMsg").textContent = s; }
+  function newGame() {
+    var k;
+    b = []; for (k = 0; k < N * N; k++) { b.push(0); }
+    b[27] = 2; b[36] = 2; b[28] = 1; b[35] = 1;
+    turn = 1; over = false; last = -1; busy = false;
+    msg(mode === "two" ? "Schwarz beginnt" : "Du beginnst (Schwarz)");
+    labels(); draw();
+  }
+  function finish() {
+    var n = count(b);
+    over = true;
+    if (n[0] === n[1]) { msg("Unentschieden, " + n[0] + " zu " + n[1]); if (mode !== "two") { rec.d++; } }
+    else if (mode === "two") { msg((n[0] > n[1] ? "Schwarz" : "Weiß") + " gewinnt " + Math.max(n[0], n[1]) + " zu " + Math.min(n[0], n[1])); }
+    else if (n[0] > n[1]) { msg("Du gewinnst " + n[0] + " zu " + n[1] + "!"); rec.w++; }
+    else { msg("Der Computer gewinnt " + n[1] + " zu " + n[0] + "."); rec.l++; }
+    store.set("rev.rec", rec);
+  }
+  /* nach einem Zug: Gegner am Zug, sonst passen, sonst Spielende */
+  function next() {
+    var q = 3 - turn;
+    if (movesFor(b, q).length) { turn = q; msg(mode === "two" ? name(turn) + " ist dran" : turn === 1 ? "Du bist dran" : "Computer denkt …"); }
+    else if (movesFor(b, turn).length) { msg(name(q) + (mode !== "two" && q === 1 ? " musst passen" : " muss passen") + " – " + (mode === "two" ? name(turn) + " ist noch einmal dran" : turn === 1 ? "du bist noch einmal dran" : "der Computer zieht noch einmal")); }
+    else { finish(); }
+    labels(); draw();
+    if (!over && cpuTurn()) { busy = true; setTimeout(function () { busy = false; doMove(cpuMove()); }, 450); }
+  }
+  function doMove(m) {
+    if (!m || over) { return; }
+    b = apply(b, m, turn); last = m.i;
+    next();
+  }
+  cv.onclick = function (e) {
+    if (over || busy || cpuTurn()) { return; }
+    var rc = cv.getBoundingClientRect(), x = Math.floor((e.clientX - rc.left) / cs), y = Math.floor((e.clientY - rc.top) / cs), i, f;
+    if (x < 0 || y < 0 || x >= N || y >= N) { return; }
+    i = y * N + x; f = flips(b, i, turn);
+    if (!f.length) { toast("Hier ist kein Zug möglich"); return; }
+    doMove({ i: i, f: f });
+  };
+  $("#rNew").onclick = function () { if (!busy) { newGame(); } };
+  $("#rHint").onclick = function () { hints = !hints; store.set("rev.hints", hints); labels(); draw(); };
+  $("#rMode").onclick = function (e) {
+    var bt = closest(e.target, "button"); if (!bt || busy) { return; }
+    mode = bt.getAttribute("data-m"); store.set("rev.mode", mode); newGame();
+  };
+  window.onresize = size;
+  newGame(); size();
+})();
+</script>
+</body>
+</html>

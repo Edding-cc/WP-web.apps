@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Galgenmännchen · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#gPic { display: block; width: 150px; height: 150px; margin: 0 auto; }
+#gPic .p { display: none; }
+html.fs #gPic { width: 110px; height: 110px; }
+html.fs #gKb button { height: 38px; margin-bottom: 4px; }
+html.fs #gWord { font-size: 22px; margin: 2px 0; }
+#gWord { text-align: center; font-family: Consolas, "Courier New", monospace; font-size: 26px; font-weight: 700; letter-spacing: .25em; margin: 8px 0 4px; word-wrap: break-word; }
+#gKb { font-size: 0; margin: 8px -0.5% 0; -ms-user-select: none; user-select: none; }
+#gKb button { display: inline-block; width: 13.28%; margin: 0 .5% 6px; height: 44px; border: 0; border-radius: 10px; font-size: 17px; font-weight: 600; cursor: pointer; padding: 0; vertical-align: top; }
+#gKb button[disabled] { opacity: .3; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Galgenmännchen</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="stats"><div><b id="gW">0</b><span>Gewonnen</span></div><div><b id="gL">0</b><span>Verloren</span></div><div><b id="gS">0</b><span>Serie</span></div></div>
+<svg id="gPic" viewBox="0 0 140 150" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true">
+<path class="p" d="M10 140h80"/><path class="p" d="M30 140V10"/><path class="p" d="M30 10h70"/><path class="p" d="M100 10v20"/>
+<circle class="p" cx="100" cy="42" r="12"/><path class="p" d="M100 54v40"/><path class="p" d="M100 64l-18 15"/><path class="p" d="M100 64l18 15"/>
+<path class="p" d="M100 94l-15 26"/><path class="p" d="M100 94l15 26"/>
+</svg>
+<p class="center muted" id="gCat" style="margin:4px 0 0;font-size:14px"></p>
+<div id="gWord"></div>
+<p class="center" id="gMsg" style="min-height:1.5em;margin:0 0 4px;font-weight:600"></p>
+<div id="gKb"></div>
+<div class="ctl c2 mt"><button id="gNew" class="ac">Neues Wort</button><button id="gTwo" class="tonal">Wort vorgeben</button></div>
+<div class="card" id="gTwoBox" hidden>
+  <h3>Wort für deine Mitspielerin oder deinen Mitspieler</h3>
+  <label class="fld" for="gIn">Wort (3 bis 20 Buchstaben, wird verdeckt eingegeben)</label>
+  <input type="password" id="gIn" autocomplete="off" maxlength="20">
+  <label class="fld" for="gHint">Hinweis (optional)</label>
+  <input type="text" id="gHint" maxlength="30">
+  <div class="row mt"><button class="btn" id="gTwoGo">Starten</button><button class="btn text" id="gTwoX">Abbrechen</button></div>
+</div>
+<p class="muted help" style="font-size:14px">Errate das Wort Buchstabe für Buchstabe. Nach zehn Fehlern ist die Runde verloren. Funktioniert auch mit der Tastatur.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var WORDS = {
+    "Tier": "HUND KATZE ELEFANT GIRAFFE PINGUIN SCHMETTERLING EICHHÖRNCHEN KROKODIL DELFIN SCHILDKRÖTE PAPAGEI KÄNGURU NASHORN FLEDERMAUS IGEL MARIENKÄFER WALROSS ZEBRA HAMSTER EULE REGENWURM SEEPFERDCHEN",
+    "Essen und Trinken": "KARTOFFEL APFELSTRUDEL BREZEL PFANNKUCHEN ERDBEERE SCHOKOLADE KÄSEBROT SPAGHETTI GURKENSALAT ZITRONE HONIGMELONE MARMELADE BUTTERMILCH KAKAO WAFFEL BLAUBEERE",
+    "Zuhause": "KÜHLSCHRANK WASCHMASCHINE BÜCHERREGAL SCHREIBTISCH BADEWANNE KLEIDERSCHRANK STAUBSAUGER TEPPICH FENSTERBANK GLÜHBIRNE KOPFKISSEN TÜRKLINGEL BRIEFKASTEN",
+    "Natur und Wetter": "REGENBOGEN GEWITTER SONNENBLUME VULKAN WASSERFALL SCHNEEFLOCKE TANNENZAPFEN GLETSCHER LÖWENZAHN NEBEL WIRBELSTURM KASTANIE",
+    "Technik": "COMPUTER TASTATUR BILDSCHIRM DRUCKER LAUTSPRECHER LADEKABEL ROUTER FESTPLATTE PASSWORT VERSCHLÜSSELUNG FIREWALL DATENSCHUTZ SERVER BROWSER SMARTPHONE",
+    "Sport und Freizeit": "TISCHTENNIS SCHWIMMBAD FAHRRAD SKATEBOARD WANDERUNG ZELTLAGER SCHACHBRETT TRAMPOLIN HANDBALL KLETTERWAND PUZZLE",
+    "Verkehr": "EISENBAHN FLUGZEUG HUBSCHRAUBER SEGELBOOT MOTORRAD AMPEL TANKSTELLE BAHNHOF ROLLTREPPE KREISVERKEHR",
+    "Beruf": "BÄCKERIN GÄRTNER ÄRZTIN PILOT TISCHLERIN FRISEUR LEHRER ASTRONAUTIN SCHORNSTEINFEGER BIBLIOTHEKARIN"
+  };
+  var KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜß".split(""), MAX = 10;
+  var st = store.get("hang.stats", { w: 0, l: 0, s: 0 }), recent = store.get("hang.recent", []);
+  var word, cat, guessed, wrong, over, custom;
+
+  themeCss(function (t) { return "#gKb button{background:" + t.sf2 + ";color:" + t.tx + "}#gKb button.hit{background:" + t.acs + "}#gKb button.miss{background:none;box-shadow:inset 0 0 0 1px " + t.bd + "}#gPic{color:" + t.tx + "}#gPic .p.last{color:" + t.err + ";stroke:" + t.err + "}"; });
+
+  function pick() {
+    var all = [], c, list, k, w;
+    for (c in WORDS) { if (WORDS.hasOwnProperty(c)) { list = WORDS[c].split(" "); for (k = 0; k < list.length; k++) { all.push([list[k], c]); } } }
+    do { w = all[rnd(all.length)]; } while (recent.indexOf(w[0]) >= 0 && recent.length < all.length);
+    recent.push(w[0]); if (recent.length > 40) { recent.shift(); }
+    store.set("hang.recent", recent);
+    return w;
+  }
+  function start(w, c, isCustom) {
+    word = w; cat = c; custom = !!isCustom; guessed = {}; wrong = 0; over = false;
+    $("#gMsg").textContent = ""; $("#gTwoBox").hidden = true;
+    kb(); render();
+  }
+  function kb() {
+    var h = "", k;
+    for (k = 0; k < KEYS.length; k++) { h += '<button data-k="' + KEYS[k] + '">' + KEYS[k] + "</button>"; }
+    $("#gKb").innerHTML = h;
+  }
+  function solved() { for (var k = 0; k < word.length; k++) { if (!guessed[word.charAt(k)]) { return false; } } return true; }
+  function render() {
+    var ps = $$("#gPic .p"), k, out = "", ch, bs = $$("#gKb button");
+    for (k = 0; k < ps.length; k++) { ps[k].style.display = k < wrong ? "inline" : "none"; ps[k].setAttribute("class", "p" + (over && k === wrong - 1 && !solved() ? " last" : "")); }
+    for (k = 0; k < word.length; k++) { ch = word.charAt(k); out += guessed[ch] || over ? ch : "_"; }
+    $("#gWord").textContent = out;
+    $("#gCat").textContent = cat ? "Hinweis: " + cat : (custom ? "Vorgegebenes Wort" : "");
+    for (k = 0; k < bs.length; k++) {
+      ch = bs[k].getAttribute("data-k");
+      bs[k].disabled = over || !!guessed[ch];
+      bs[k].className = guessed[ch] ? (word.indexOf(ch) >= 0 ? "hit" : "miss") : "";
+    }
+    $("#gW").textContent = st.w; $("#gL").textContent = st.l; $("#gS").textContent = st.s;
+  }
+  function guess(ch) {
+    if (over || !word || guessed[ch]) { return; }
+    guessed[ch] = true;
+    if (word.indexOf(ch) < 0) { wrong++; }
+    if (solved()) {
+      over = true;
+      if (!custom) { st.w++; st.s++; store.set("hang.stats", st); }
+      $("#gMsg").textContent = wrong ? "Richtig! Mit " + wrong + (wrong === 1 ? " Fehler" : " Fehlern") : "Richtig – ganz ohne Fehler!";
+    } else if (wrong >= MAX) {
+      over = true;
+      if (!custom) { st.l++; st.s = 0; store.set("hang.stats", st); }
+      $("#gMsg").textContent = "Verloren. Gesucht war: " + word;
+    }
+    render();
+  }
+  $("#gKb").onclick = function (e) { var b = closest(e.target, "button"); if (b && !b.disabled) { guess(b.getAttribute("data-k")); } };
+  document.addEventListener("keydown", function (e) {
+    var tg = e.target && e.target.tagName, ch;
+    if (tg === "INPUT" || tg === "TEXTAREA" || e.ctrlKey || e.altKey) { return; }
+    ch = e.key && e.key.length === 1 ? e.key : String.fromCharCode(e.keyCode);
+    ch = ch === "ß" ? ch : ch.toUpperCase();
+    if (KEYS.indexOf(ch) >= 0) { e.preventDefault(); guess(ch); }
+  }, false);
+  $("#gNew").onclick = function () { var w = pick(); start(w[0], w[1], false); };
+  $("#gTwo").onclick = function () { $("#gTwoBox").hidden = false; $("#gIn").value = ""; $("#gHint").value = ""; $("#gIn").focus(); };
+  $("#gTwoX").onclick = function () { $("#gTwoBox").hidden = true; };
+  $("#gTwoGo").onclick = function () {
+    var v = $("#gIn").value.replace(/\s+/g, ""), up = "", k, ch;
+    for (k = 0; k < v.length; k++) { ch = v.charAt(k); up += ch === "ß" ? ch : ch.toUpperCase(); }
+    for (k = 0; k < up.length; k++) { if (KEYS.indexOf(up.charAt(k)) < 0) { toast("Nur Buchstaben A–Z, Ä, Ö, Ü und ß"); return; } }
+    if (up.length < 3) { toast("Mindestens 3 Buchstaben"); return; }
+    $("#gIn").value = "";
+    start(up, $("#gHint").value.replace(/^\s+|\s+$/g, ""), true);
+  };
+  $("#gNew").onclick();
+})();
+</script>
+</body>
+</html>

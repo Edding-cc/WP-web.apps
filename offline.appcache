@@ -1,13 +1,14 @@
 CACHE MANIFEST
 # Windows Phone 8.1 Web Apps – Offline-Speicher (Application Cache, IE11)
 # Bei JEDER Änderung an einer Datei die Version erhöhen, sonst lädt IE11 nichts Neues.
-# Version 2026-10-24.1
+# Version 2026-10-28.6
 
 CACHE:
 ./
 assets/style.css
 assets/common.js
 einstellungen/
+tools/datenvolumen/
 tools/fps/
 tools/geraeteinfo/
 tools/licht/
@@ -19,17 +20,32 @@ tools/verknuepfungen/
 apps/2048/
 apps/befehle/
 apps/buchstabieren/
+apps/codeknacken/
 apps/datum/
 apps/einheiten/
+apps/farbfolge/
+apps/flattervogel/
+apps/fuenfwuerfel/
+apps/galgen/
+apps/gluecksrad/
+apps/kopfrechnen/
+apps/laufschrift/
 apps/lernkarten/
+apps/lichteraus/
+apps/mauerbrecher/
 apps/memory/
 apps/minesweeper/
 apps/notizen/
 apps/passwort/
+apps/pingpong/
 apps/ports/
 apps/prozent/
+apps/reaktion/
+apps/reversi/
 apps/schiebepuzzle/
 apps/snake/
+apps/social/
+apps/solitaer/
 apps/stoppuhr/
 apps/subnetz/
 apps/sudoku/
@@ -39,9 +55,11 @@ apps/tictactoe/
 apps/timer/
 apps/todo/
 apps/trinkgeld/
+apps/vierreihe/
 apps/wuerfel/
 apps/zaehler/
 apps/zahlensysteme/
+apps/zeichnen/
 
 NETWORK:
 *

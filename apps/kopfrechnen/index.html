@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Kopfrechnen-Duell · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#duel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 70; display: none; -ms-user-select: none; user-select: none; }
+#duel.show { display: block; }
+.half { position: absolute; left: 0; right: 0; height: 50%; padding: 12px 16px; text-align: center; }
+.half.p1 { bottom: 0; }
+.half.p2 { top: 0; -ms-transform: rotate(180deg); transform: rotate(180deg); }
+.half .sc { font-size: 15px; font-weight: 600; }
+.half .q { font-size: 40px; font-weight: 700; font-family: Consolas, "Courier New", monospace; margin: 4px 0 10px; line-height: 1.2; }
+.half .ans { font-size: 0; }
+.half .ans button { display: inline-block; width: 31.33%; margin: 0 1%; height: 64px; border: 0; border-radius: 14px; font-size: 26px; font-weight: 700; cursor: pointer; padding: 0; -ms-touch-action: none; touch-action: none; }
+.half .ans button.ok { background: #2e9d48 !important; color: #fff !important; }
+.half .ans button.no { background: #c0362c !important; color: #fff !important; }
+.half.locked .ans button { opacity: .35; }
+.half .st { min-height: 1.4em; font-weight: 600; margin-top: 8px; }
+#dExit { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 0; font-size: 20px; cursor: pointer; z-index: 2; }
+#dMid { position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; }
+#solo .q { font-size: 44px; font-weight: 700; font-family: Consolas, "Courier New", monospace; text-align: center; margin: 8px 0 12px; }
+#solo .ans button { height: 64px; font-size: 26px; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Kopfrechnen-Duell</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<label class="fld" style="margin-top:0">Schwierigkeit</label>
+<div class="chips" id="kLvl"><button data-l="0">Leicht</button><button data-l="1">Mittel</button><button data-l="2">Schwer</button></div>
+<div class="card">
+  <h3>Duell zu zweit</h3>
+  <p class="muted help" style="font-size:14px;margin:0 0 10px">Legt das Telefon flach zwischen euch. Jede Seite bekommt dieselbe Aufgabe – wer zuerst richtig tippt, holt den Punkt. Ein falscher Tipp sperrt dich für diese Runde. Wer zuerst <b id="kGoalT">10</b> Punkte hat, gewinnt.</p>
+  <div class="chips" id="kGoal"><button data-g="5">Bis 5</button><button data-g="10">Bis 10</button><button data-g="20">Bis 20</button></div>
+  <button class="btn" id="kDuel">Duell starten</button>
+</div>
+<div class="card" id="solo">
+  <h3>Allein: 60 Sekunden</h3>
+  <div class="stats"><div><b id="sTime">60</b><span>Sekunden</span></div><div><b id="sPts">0</b><span>Richtig</span></div><div><b id="sBest">0</b><span>Rekord</span></div></div>
+  <div class="q" id="sQ">–</div>
+  <div class="ctl ans" id="sAns"><button></button><button></button><button></button></div>
+  <p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+  <button class="btn" id="sGo">Start</button>
+</div>
+</main>
+<div id="duel">
+  <div class="half p2" id="h2"><div class="sc" id="sc2"></div><div class="q"></div><div class="ans"><button></button><button></button><button></button></div><div class="st"></div></div>
+  <div id="dMid"></div>
+  <div class="half p1" id="h1"><div class="sc" id="sc1"></div><div class="q"></div><div class="ans"><button></button><button></button><button></button></div><div class="st"></div></div>
+  <button id="dExit" aria-label="Duell beenden">✕</button>
+</div>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var lvl = store.get("kr.lvl", 1), goal = store.get("kr.goal", 10), best = store.get("kr.best", [0, 0, 0]);
+  var task, pts = [0, 0], locked = [false, false], roundOver = false, nextT = 0;
+  var soloTask, soloPts = 0, soloLeft = 0, soloT = 0, soloLock = false;
+
+  themeCss(function (t) {
+    return "#duel{background:" + t.bg + "}.half .ans button{background:" + t.sf2 + ";color:" + t.tx + "}#dExit{background:" + t.sf2 + ";color:" + t.tx + "}#dMid{background:" + t.bd + "}" +
+      ".half.p1 .sc{color:" + t.link + "}.half.p2 .sc{color:" + t.err + "}";
+  });
+
+  function between(a, b) { return a + rnd(b - a + 1); }
+  /* Aufgabe mit Ergebnis und zwei plausiblen falschen Antworten */
+  function make() {
+    var op, a, b, ans, q, k, opts, d, tries = 0;
+    var ops = lvl === 0 ? ["+", "−"] : lvl === 1 ? ["+", "−", "×", "×"] : ["+", "−", "×", "÷"];
+    op = ops[rnd(ops.length)];
+    if (op === "+") { a = lvl === 0 ? between(1, 10) : lvl === 1 ? between(10, 60) : between(50, 500); b = lvl === 0 ? between(1, 10) : lvl === 1 ? between(5, 40) : between(20, 499); ans = a + b; }
+    else if (op === "−") { a = lvl === 0 ? between(5, 20) : lvl === 1 ? between(20, 99) : between(100, 999); b = between(1, a - 1); ans = a - b; }
+    else if (op === "×") { a = lvl === 1 ? between(2, 10) : between(6, 19); b = lvl === 1 ? between(2, 10) : between(3, 12); ans = a * b; }
+    else { b = between(2, 12); ans = between(2, 15); a = b * ans; }
+    q = a + " " + op + " " + b;
+    opts = [ans];
+    while (opts.length < 3 && tries++ < 50) {
+      d = op === "×" || op === "÷" ? [-b, b, -1, 1, 2, -2, 10, -10][rnd(8)] : [-1, 1, -2, 2, -10, 10, -3, 3][rnd(8)];
+      k = ans + d;
+      if (k >= 0 && opts.indexOf(k) < 0) { opts.push(k); }
+    }
+    while (opts.length < 3) { opts.push(ans + opts.length * 7); }
+    return { q: q, ans: ans, opts: opts };
+  }
+  function chips() {
+    var bs = $$("#kLvl button"), k;
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", +bs[k].getAttribute("data-l") === lvl ? "true" : "false"); }
+    bs = $$("#kGoal button");
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", +bs[k].getAttribute("data-g") === goal ? "true" : "false"); }
+    $("#kGoalT").textContent = goal; $("#sBest").textContent = best[lvl];
+  }
+
+  /* ---------- Duell ---------- */
+  function half(p) { return $(p === 0 ? "#h1" : "#h2"); }
+  function scores() {
+    $("#sc1").textContent = "Du: " + pts[0] + " · Gegenüber: " + pts[1];
+    $("#sc2").textContent = "Du: " + pts[1] + " · Gegenüber: " + pts[0];
+  }
+  function round() {
+    var p, h, bs, o, k;
+    task = make(); locked = [false, false]; roundOver = false;
+    for (p = 0; p < 2; p++) {
+      h = half(p); h.className = "half " + (p === 0 ? "p1" : "p2");
+      $(".q", h).textContent = task.q + " = ?"; $(".st", h).textContent = "";
+      o = shuffle(task.opts.slice()); bs = $$(".ans button", h);
+      for (k = 0; k < 3; k++) { bs[k].textContent = o[k]; bs[k].className = ""; bs[k].setAttribute("data-v", o[k]); }
+    }
+    scores();
+  }
+  function duelTap(p, b) {
+    if (roundOver || locked[p]) { return; }
+    var v = +b.getAttribute("data-v"), q = 1 - p;
+    if (v === task.ans) {
+      roundOver = true; pts[p]++; b.className = "ok";
+      $(".st", half(p)).textContent = "Punkt für dich!"; $(".st", half(q)).textContent = "Zu langsam – " + task.q + " = " + task.ans;
+      scores();
+      if (pts[p] >= goal) {
+        $(".st", half(p)).textContent = "Gewonnen! " + pts[p] + " zu " + pts[q];
+        $(".st", half(q)).textContent = "Verloren, " + pts[q] + " zu " + pts[p] + ". Tippe ✕ oder warte auf die Revanche.";
+        nextT = setTimeout(function () { pts = [0, 0]; round(); }, 4000);
+        return;
+      }
+      nextT = setTimeout(round, 1100);
+    } else {
+      locked[p] = true; b.className = "no"; half(p).className += " locked";
+      $(".st", half(p)).textContent = "Falsch – gesperrt bis zur nächsten Aufgabe";
+      if (locked[q]) { roundOver = true; $(".st", half(0)).textContent = $(".st", half(1)).textContent = "Beide falsch: " + task.q + " = " + task.ans; nextT = setTimeout(round, 1600); }
+    }
+  }
+  function startDuel() {
+    pts = [0, 0]; $("#duel").className = "show"; round();
+    try { var el = document.documentElement; if (el.requestFullscreen) { el.requestFullscreen(); } else if (el.msRequestFullscreen) { el.msRequestFullscreen(); } } catch (e) {}
+  }
+  function endDuel() {
+    clearTimeout(nextT); $("#duel").className = "";
+    try { if (document.fullscreenElement && document.exitFullscreen) { document.exitFullscreen(); } else if (document.msFullscreenElement && document.msExitFullscreen) { document.msExitFullscreen(); } } catch (e) {}
+  }
+  (function () {
+    var p, k, bs;
+    for (p = 0; p < 2; p++) {
+      bs = $$(".ans button", half(p));
+      for (k = 0; k < 3; k++) { (function (p, b) { onPress(b, function () { duelTap(p, b); }); })(p, bs[k]); }
+    }
+  })();
+
+  /* ---------- Solo ---------- */
+  function soloShow() {
+    var o = shuffle(soloTask.opts.slice()), bs = $$("#sAns button"), k;
+    $("#sQ").textContent = soloTask.q + " = ?";
+    for (k = 0; k < 3; k++) { bs[k].textContent = o[k]; bs[k].setAttribute("data-v", o[k]); bs[k].className = ""; bs[k].disabled = false; }
+  }
+  function soloStart() {
+    soloPts = 0; soloLeft = 60; soloLock = false;
+    $("#sPts").textContent = 0; $("#sTime").textContent = 60; $("#sMsg").textContent = ""; $("#sGo").textContent = "Neu starten";
+    soloTask = make(); soloShow();
+    clearInterval(soloT);
+    soloT = setInterval(function () {
+      soloLeft--; $("#sTime").textContent = soloLeft;
+      if (soloLeft <= 0) { soloEnd(); }
+    }, 1000);
+  }
+  function soloEnd() {
+    clearInterval(soloT); soloT = 0;
+    var bs = $$("#sAns button"), k;
+    for (k = 0; k < 3; k++) { bs[k].disabled = true; }
+    if (soloPts > best[lvl]) { best[lvl] = soloPts; store.set("kr.best", best); toast("Neuer Rekord!"); }
+    $("#sMsg").textContent = "Zeit um! " + soloPts + " richtig."; $("#sGo").textContent = "Nochmal"; chips();
+  }
+  function soloTap(b) {
+    if (!soloT || soloLock) { return; }
+    var ok = +b.getAttribute("data-v") === soloTask.ans;
+    b.className = ok ? "ac" : "";
+    if (ok) { soloPts++; $("#sPts").textContent = soloPts; $("#sMsg").textContent = ""; soloTask = make(); soloLock = true; setTimeout(function () { soloLock = false; if (soloT) { soloShow(); } }, 150); }
+    else { soloLeft = Math.max(0, soloLeft - 3); $("#sTime").textContent = soloLeft; $("#sMsg").textContent = "Falsch: " + soloTask.q + " = " + soloTask.ans + " (−3 Sekunden)"; soloTask = make(); soloShow(); if (soloLeft <= 0) { soloEnd(); } }
+  }
+  (function () { var bs = $$("#sAns button"); for (var k = 0; k < 3; k++) { (function (b) { onPress(b, function () { soloTap(b); }); })(bs[k]); } })();
+
+  $("#kLvl").onclick = function (e) { var b = closest(e.target, "button"); if (b) { lvl = +b.getAttribute("data-l"); store.set("kr.lvl", lvl); chips(); if (soloT) { soloEnd(); } } };
+  $("#kGoal").onclick = function (e) { var b = closest(e.target, "button"); if (b) { goal = +b.getAttribute("data-g"); store.set("kr.goal", goal); chips(); } };
+  $("#kDuel").onclick = startDuel;
+  $("#dExit").onclick = endDuel;
+  $("#sGo").onclick = soloStart;
+  document.addEventListener("keydown", function (e) {
+    if (e.keyCode === 27 && $("#duel").className) { endDuel(); }
+    else if (e.keyCode >= 49 && e.keyCode <= 51 && soloT) { soloTap($$("#sAns button")[e.keyCode - 49]); }
+  }, false);
+  chips();
+})();
+</script>
+</body>
+</html>

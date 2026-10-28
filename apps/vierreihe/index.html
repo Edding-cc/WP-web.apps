@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Vier in einer Reihe · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#cv { display: block; cursor: pointer; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Vier in einer Reihe</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="cMode"><button data-m="easy">Leicht</button><button data-m="mid">Mittel</button><button data-m="hard">Schwer</button><button data-m="two">2 Spieler</button></div>
+<div class="stats"><div><b id="cA">0</b><span id="cAl">Du (Rot)</span></div><div><b id="cD">0</b><span>Unentschieden</span></div><div><b id="cB">0</b><span id="cBl">Computer (Gelb)</span></div></div>
+<div class="board" id="cBoard"><canvas id="cv"></canvas></div>
+<p class="center" id="cMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="ctl c2"><button id="cNew" class="ac">Neue Runde</button><button id="cReset" class="tonal">Stand löschen</button></div>
+<p class="muted help" style="font-size:14px">Tippe auf eine Spalte, um einen Stein einzuwerfen. Wer zuerst vier Steine waagerecht, senkrecht oder schräg in eine Reihe bringt, gewinnt. Tastatur: 1 bis 7.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var C = 7, R = 6, ORDER = [3, 2, 4, 1, 5, 0, 6], COL = ["", "#e0483e", "#e8b81a"], SC = [0, 1, 8, 40, 0];
+  var DEPTH = { easy: 2, mid: 4, hard: 6 };
+  var mode = store.get("c4.mode", "mid"), score = store.get("c4.score", { a: 0, b: 0, d: 0 });
+  var cv = $("#cv"), ctx = cv.getContext("2d"), cs = 0;
+  var b, h, turn, over, moves, win, starter = 1, busy = false, fall = null;
+  var raf = window.requestAnimationFrame || window.msRequestAnimationFrame || function (f) { return setTimeout(function () { f(+new Date()); }, 16); };
+
+  /* alle 69 möglichen Viererreihen; Feld = Spalte * R + Zeile (Zeile 0 unten) */
+  var WIN = [], CELLWIN = [], i;
+  (function () {
+    var D = [[1, 0], [0, 1], [1, 1], [1, -1]], c, r, d, k, w, x, y;
+    for (c = 0; c < C * R; c++) { CELLWIN.push([]); }
+    for (c = 0; c < C; c++) { for (r = 0; r < R; r++) { for (d = 0; d < 4; d++) {
+      w = [];
+      for (k = 0; k < 4; k++) { x = c + D[d][0] * k; y = r + D[d][1] * k; if (x < 0 || x >= C || y < 0 || y >= R) { break; } w.push(x * R + y); }
+      if (w.length === 4) { for (k = 0; k < 4; k++) { CELLWIN[w[k]].push(WIN.length); } WIN.push(w); }
+    } } }
+  })();
+
+  function wins(cell, p) {
+    var l = CELLWIN[cell], j, w;
+    for (j = 0; j < l.length; j++) { w = WIN[l[j]]; if (b[w[0]] === p && b[w[1]] === p && b[w[2]] === p && b[w[3]] === p) { return w; } }
+    return null;
+  }
+  /* Bewertung aus Sicht von p: offene Reihen zählen, Mitte bevorzugen */
+  function evaluate(p) {
+    var s = 0, q = 3 - p, j, k, w, a, o, v;
+    for (j = 0; j < WIN.length; j++) {
+      w = WIN[j]; a = 0; o = 0;
+      for (k = 0; k < 4; k++) { v = b[w[k]]; if (v === p) { a++; } else if (v === q) { o++; } }
+      if (!o) { s += SC[a]; } else if (!a) { s -= SC[o]; }
+    }
+    for (k = 0; k < R; k++) { v = b[3 * R + k]; if (v === p) { s += 3; } else if (v === q) { s -= 3; } }
+    return s;
+  }
+  /* Negamax mit Alpha-Beta; Wert aus Sicht des Spielers am Zug */
+  function negamax(depth, alpha, beta, p) {
+    var best = -Infinity, any = false, j, c, cell, v;
+    for (j = 0; j < C; j++) {
+      c = ORDER[j]; if (h[c] >= R) { continue; }
+      any = true; cell = c * R + h[c]; b[cell] = p; h[c]++;
+      if (wins(cell, p)) { v = 100000 + depth; }
+      else if (depth <= 1) { v = evaluate(p); }
+      else { v = -negamax(depth - 1, -beta, -alpha, 3 - p); }
+      h[c]--; b[cell] = 0;
+      if (v > best) { best = v; }
+      if (best > alpha) { alpha = best; }
+      if (alpha >= beta) { break; }
+    }
+    return any ? best : 0;
+  }
+  function cpuMove() {
+    var free = [], j, c, cell, v, bestV = -Infinity, bestC = -1, depth = DEPTH[mode] || 4;
+    for (j = 0; j < C; j++) { if (h[ORDER[j]] < R) { free.push(ORDER[j]); } }
+    if (mode === "easy" && rnd(100) < 35) { return free[rnd(free.length)]; }
+    for (j = 0; j < free.length; j++) {
+      c = free[j]; cell = c * R + h[c]; b[cell] = 2; h[c]++;
+      v = wins(cell, 2) ? 1e9 : -negamax(depth - 1, -Infinity, -bestV, 1);
+      h[c]--; b[cell] = 0;
+      if (v > bestV) { bestV = v; bestC = c; }
+    }
+    return bestC < 0 ? free[0] : bestC;
+  }
+
+  function size() {
+    var W = fitWidth(420, R / C, $("#cBoard")), r = window.devicePixelRatio || 1;
+    cs = W / C;
+    cv.style.width = W + "px"; cv.style.height = cs * R + "px"; $("#cBoard").style.width = W + "px";
+    cv.width = Math.round(W * r); cv.height = Math.round(cs * R * r);
+    ctx.setTransform(r, 0, 0, r, 0, 0);
+    draw();
+  }
+  function disc(x, y, col, ring) {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, cs * 0.4, 0, Math.PI * 2); ctx.fill();
+    if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = Math.max(2, cs * 0.08); ctx.beginPath(); ctx.arc(x, y, cs * 0.3, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  function draw() {
+    var t = getTheme(), c, r, v, W = cs * C, H = cs * R;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = t.ac; ctx.fillRect(0, 0, W, H);
+    for (c = 0; c < C; c++) { for (r = 0; r < R; r++) {
+      v = b[c * R + r];
+      disc((c + 0.5) * cs, (R - r - 0.5) * cs, v ? COL[v] : t.bg, win && win.indexOf(c * R + r) >= 0 ? (t.dark ? "#ffffff" : "#111111") : null);
+    } }
+    if (fall) { disc((fall.c + 0.5) * cs, fall.y, COL[fall.p], null); }
+  }
+  function animate(c, r, p, done) {
+    var ty = (R - r - 0.5) * cs, last = 0;
+    fall = { c: c, p: p, y: -cs * 0.5, v: 0 };
+    function step(t) {
+      var dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016; last = t;
+      fall.v += cs * 60 * dt; fall.y += fall.v * dt;
+      if (fall.y >= ty) { fall = null; done(); return; }
+      draw(); raf(step);
+    }
+    raf(step);
+  }
+  function cpuTurn() { return mode !== "two" && turn === 2; }
+  function labels() {
+    var two = mode === "two", bs = $$("#cMode button"), j;
+    $("#cAl").textContent = two ? "Rot" : "Du (Rot)";
+    $("#cBl").textContent = two ? "Gelb" : "Computer (Gelb)";
+    $("#cA").textContent = score.a; $("#cB").textContent = score.b; $("#cD").textContent = score.d;
+    for (j = 0; j < bs.length; j++) { bs[j].setAttribute("aria-pressed", bs[j].getAttribute("data-m") === mode ? "true" : "false"); }
+    if (!over) { $("#cMsg").textContent = two ? (turn === 1 ? "Rot" : "Gelb") + " ist dran" : turn === 1 ? "Du bist dran" : "Computer denkt …"; }
+  }
+  function newRound() {
+    var j;
+    b = []; for (j = 0; j < C * R; j++) { b.push(0); }
+    h = [0, 0, 0, 0, 0, 0, 0]; moves = 0; over = false; win = null; busy = false; fall = null;
+    turn = starter; starter = 3 - starter;
+    labels(); draw();
+    if (cpuTurn()) { setTimeout(cpu, 400); }
+  }
+  function cpu() { if (!over && cpuTurn()) { play(cpuMove()); } }
+  function play(c) {
+    if (over || busy || c < 0 || c >= C || h[c] >= R) { return; }
+    var r = h[c], p = turn;
+    busy = true;
+    animate(c, r, p, function () {
+      var cell = c * R + r;
+      b[cell] = p; h[c]++; moves++; busy = false;
+      win = wins(cell, p);
+      if (win) {
+        over = true; score[p === 1 ? "a" : "b"]++; store.set("c4.score", score);
+        $("#cMsg").textContent = mode === "two" ? (p === 1 ? "Rot" : "Gelb") + " gewinnt!" : p === 1 ? "Du gewinnst!" : "Der Computer gewinnt.";
+      } else if (moves === C * R) {
+        over = true; score.d++; store.set("c4.score", score); $("#cMsg").textContent = "Unentschieden – das Feld ist voll";
+      } else { turn = 3 - p; }
+      labels(); draw();
+      if (!over && cpuTurn()) { setTimeout(cpu, 60); }
+    });
+  }
+  function userPlay(c) { if (!cpuTurn()) { play(c); } }
+
+  cv.onclick = function (e) {
+    var rc = cv.getBoundingClientRect();
+    userPlay(Math.floor((e.clientX - rc.left) / cs));
+  };
+  document.addEventListener("keydown", function (e) { if (e.keyCode >= 49 && e.keyCode <= 55) { userPlay(e.keyCode - 49); } }, false);
+  $("#cNew").onclick = function () { if (!busy) { newRound(); } };
+  $("#cReset").onclick = function () { score = { a: 0, b: 0, d: 0 }; store.set("c4.score", score); labels(); };
+  $("#cMode").onclick = function (e) {
+    var bt = closest(e.target, "button"); if (!bt || busy) { return; }
+    mode = bt.getAttribute("data-m"); store.set("c4.mode", mode);
+    score = { a: 0, b: 0, d: 0 }; store.set("c4.score", score); starter = 1; newRound();
+  };
+  window.onresize = size;
+  b = []; for (i = 0; i < C * R; i++) { b.push(0); }
+  size(); newRound();
+})();
+</script>
+</body>
+</html>

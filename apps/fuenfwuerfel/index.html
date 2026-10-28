@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="de" manifest="../../offline.appcache">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F3A5F">
+<title>Fünf Würfel · Windows Phone 8.1 Web Apps</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+#fd { text-align: center; font-size: 0; margin: 4px 0 6px; -ms-user-select: none; user-select: none; }
+#fd button { display: inline-block; width: 18%; max-width: 64px; margin: 0 1%; padding: 0; border: 0; background: none; cursor: pointer; vertical-align: top; }
+#fd svg { width: 100%; height: auto; display: block; }
+#fd .hold { font-size: 11px; font-weight: 700; height: 16px; line-height: 16px; display: block; }
+#fd button.roll svg { -ms-animation: shake .3s; animation: shake .3s; }
+@-ms-keyframes shake { 30% { -ms-transform: rotate(-12deg); } 70% { -ms-transform: rotate(10deg); } }
+@keyframes shake { 30% { transform: rotate(-12deg); } 70% { transform: rotate(10deg); } }
+#fs td, #fs th { padding: 7px 6px; }
+#fs td.v { text-align: right; width: 64px; font-weight: 600; font-family: Consolas, "Courier New", monospace; }
+#fs tr.pick td.v { cursor: pointer; }
+#fs tr.sum td { font-weight: 700; }
+html.fs #fd button { max-width: 44px; }
+html.fs #fMsg { min-height: 0; margin: 0 !important; }
+html.fs #fWho { margin: 0 !important; }
+html.fs #fs td, html.fs #fs th { padding: 1px 6px; font-size: 13px; }
+html.fs #fd .hold { height: 12px; line-height: 12px; font-size: 9px; }
+html.fs .card { padding: 4px 10px !important; }
+</style>
+<script>var ROOT="../../";</script>
+<script src="../../assets/common.js"></script>
+</head>
+<body>
+<header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Fünf Würfel</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
+<main class="wrap">
+<div class="chips" id="fPl"><button data-p="1">1 Spieler</button><button data-p="2">2 Spieler</button></div>
+<p class="center" id="fWho" style="margin:4px 0 0;font-weight:600"></p>
+<div id="fd"></div>
+<div class="ctl c2"><button id="fRoll" class="ac">Würfeln</button><button id="fNew" class="tonal">Neues Spiel</button></div>
+<p class="center" id="fMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
+<div class="card" style="padding:8px 10px"><table class="tbl" id="fs"></table></div>
+<p class="muted help" style="font-size:14px">Bis zu dreimal pro Runde würfeln. Würfel antippen hält sie fest. Dann ein freies Feld in der Tabelle antippen – die grauen Zahlen zeigen, was du dort bekämst. Oben ab 63 Punkten gibt es 35 Bonus. Rekord: <b id="fBest">0</b> Punkte.</p>
+</main>
+<div id="fpsOverlay"></div>
+<div class="toast" id="toast" role="status"><span></span></div>
+<script>
+(function () {
+  "use strict";
+  var CATS = [
+    { n: "Einser", f: up(1) }, { n: "Zweier", f: up(2) }, { n: "Dreier", f: up(3) }, { n: "Vierer", f: up(4) }, { n: "Fünfer", f: up(5) }, { n: "Sechser", f: up(6) },
+    { n: "Dreierpasch", f: function (c, s) { return max(c) >= 3 ? s : 0; } },
+    { n: "Viererpasch", f: function (c, s) { return max(c) >= 4 ? s : 0; } },
+    { n: "Full House", f: function (c) { var a = c.slice(1).sort(); return (a[5] === 3 && a[4] === 2) || a[5] === 5 ? 25 : 0; } },
+    { n: "Kleine Straße", f: function (c) { return run(c) >= 4 ? 30 : 0; } },
+    { n: "Große Straße", f: function (c) { return run(c) >= 5 ? 40 : 0; } },
+    { n: "Fünf Gleiche", f: function (c) { return max(c) === 5 ? 50 : 0; } },
+    { n: "Chance", f: function (c, s) { return s; } }
+  ];
+  var PIPS = { 1: [[50, 50]], 2: [[28, 28], [72, 72]], 3: [[28, 28], [50, 50], [72, 72]], 4: [[28, 28], [72, 28], [28, 72], [72, 72]], 5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]], 6: [[28, 26], [72, 26], [28, 50], [72, 50], [28, 74], [72, 74]] };
+  var players = store.get("five.pl", 1), best = store.get("five.best", 0);
+  var G, T = {};
+
+  function up(n) { return function (c) { return c[n] * n; }; }
+  function max(c) { return Math.max(c[1], c[2], c[3], c[4], c[5], c[6]); }
+  function run(c) { var best = 0, cur = 0; for (var k = 1; k <= 6; k++) { cur = c[k] ? cur + 1 : 0; if (cur > best) { best = cur; } } return best; }
+  function counts(d) { var c = [0, 0, 0, 0, 0, 0, 0], s = 0; for (var k = 0; k < 5; k++) { c[d[k]]++; s += d[k]; } return { c: c, s: s }; }
+
+  themeCss(function (t) { T = t; return "#fs td.v.prev{color:" + t.mu + ";font-weight:400}#fs tr.pick:active td{background:" + t.acs + "}#fs tr.sum td{background:" + t.sf2 + "}#fd .hold{color:" + t.link + "}"; });
+
+  function newGame() {
+    G = { p: 0, n: players, sheets: [], dice: [1, 2, 3, 4, 5], held: [false, false, false, false, false], rolls: 0, over: false };
+    for (var k = 0; k < players; k++) { G.sheets.push([null, null, null, null, null, null, null, null, null, null, null, null, null]); }
+    $("#fMsg").textContent = ""; save(); render();
+  }
+  function save() { store.set("five.game", G); }
+  function upper(sh) { var s = 0; for (var k = 0; k < 6; k++) { s += sh[k] || 0; } return s; }
+  function total(sh) { var s = upper(sh), k; for (k = 6; k < 13; k++) { s += sh[k] || 0; } return s + (upper(sh) >= 63 ? 35 : 0); }
+  function die(v, held) {
+    var h = '<svg viewBox="0 0 100 100"><rect x="5" y="5" width="90" height="90" rx="18" fill="' + (held ? T.ac : "#ffffff") + '" stroke="' + (held ? T.ac : T.bd) + '" stroke-width="4"/>', k, p = PIPS[v];
+    for (k = 0; k < p.length; k++) { h += '<circle cx="' + p[k][0] + '" cy="' + p[k][1] + '" r="9" fill="' + (held ? T.onac : "#111111") + '"/>'; }
+    return h + "</svg>";
+  }
+  function render(rolled) {
+    var h = "", k, p, sh, c = counts(G.dice), bs, can = G.rolls > 0 && !G.over;
+    for (k = 0; k < 5; k++) { h += '<button data-k="' + k + '"' + (rolled && !G.held[k] ? ' class="roll"' : "") + ' aria-label="Würfel ' + G.dice[k] + (G.held[k] ? ", gehalten" : "") + '"><span class="hold">' + (G.held[k] ? "GEHALTEN" : "") + "</span>" + die(G.dice[k], G.held[k]) + "</button>"; }
+    $("#fd").innerHTML = h;
+    h = "<tr><th>Feld</th>";
+    for (p = 0; p < G.n; p++) { h += '<th style="text-align:right">' + (G.n > 1 ? "Sp. " + (p + 1) : "Punkte") + "</th>"; }
+    h += "</tr>";
+    for (k = 0; k < 13; k++) {
+      if (k === 6) {
+        h += '<tr class="sum"><td>Oben (Bonus ab 63)</td>';
+        for (p = 0; p < G.n; p++) { sh = G.sheets[p]; h += '<td class="v">' + upper(sh) + (upper(sh) >= 63 ? " +35" : "") + "</td>"; }
+        h += "</tr>";
+      }
+      h += '<tr data-k="' + k + '"' + (can && G.sheets[G.p][k] === null ? ' class="pick"' : "") + "><td>" + CATS[k].n + "</td>";
+      for (p = 0; p < G.n; p++) {
+        sh = G.sheets[p];
+        if (sh[k] !== null) { h += '<td class="v">' + sh[k] + "</td>"; }
+        else if (p === G.p && can) { h += '<td class="v prev">' + CATS[k].f(c.c, c.s) + "</td>"; }
+        else { h += '<td class="v"></td>'; }
+      }
+      h += "</tr>";
+    }
+    h += '<tr class="sum"><td>Gesamt</td>';
+    for (p = 0; p < G.n; p++) { h += '<td class="v">' + total(G.sheets[p]) + "</td>"; }
+    $("#fs").innerHTML = h + "</tr>";
+    $("#fWho").textContent = G.over ? "" : (G.n > 1 ? "Spieler " + (G.p + 1) + " – " : "") + (G.rolls ? "Wurf " + G.rolls + " von 3" : "Würfle!");
+    $("#fRoll").disabled = G.over || G.rolls >= 3;
+    $("#fRoll").textContent = G.rolls >= 3 ? "Feld wählen" : "Würfeln";
+    $("#fBest").textContent = best;
+    bs = $$("#fPl button");
+    for (k = 0; k < bs.length; k++) { bs[k].setAttribute("aria-pressed", +bs[k].getAttribute("data-p") === players ? "true" : "false"); }
+  }
+  function roll() {
+    if (G.over || G.rolls >= 3) { return; }
+    for (var k = 0; k < 5; k++) { if (!G.held[k]) { G.dice[k] = 1 + rnd(6); } }
+    G.rolls++; save(); render(true);
+  }
+  function pick(k) {
+    if (G.over || !G.rolls || G.sheets[G.p][k] !== null) { return; }
+    var c = counts(G.dice), v = CATS[k].f(c.c, c.s), done = true, p, j;
+    if (!v && !confirm(CATS[k].n + " mit 0 Punkten streichen?")) { return; }
+    G.sheets[G.p][k] = v;
+    G.rolls = 0; G.held = [false, false, false, false, false];
+    G.p = (G.p + 1) % G.n;
+    for (p = 0; p < G.n; p++) { for (j = 0; j < 13; j++) { if (G.sheets[p][j] === null) { done = false; } } }
+    if (done) { finish(); }
+    save(); render();
+  }
+  function finish() {
+    var t = [], p, m = 0, msg;
+    G.over = true;
+    for (p = 0; p < G.n; p++) { t.push(total(G.sheets[p])); if (t[p] > best) { best = t[p]; store.set("five.best", best); } m = Math.max(m, t[p]); }
+    if (G.n === 1) { msg = "Spielende: " + t[0] + " Punkte"; }
+    else if (t[0] === t[1]) { msg = "Unentschieden mit " + t[0] + " Punkten"; }
+    else { msg = "Spieler " + (t[0] > t[1] ? 1 : 2) + " gewinnt mit " + m + " Punkten"; }
+    $("#fMsg").textContent = msg;
+  }
+  $("#fd").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b || !G.rolls || G.over) { return; }
+    var k = +b.getAttribute("data-k"); G.held[k] = !G.held[k]; save(); render();
+  };
+  $("#fs").onclick = function (e) { var r = closest(e.target, "tr"); if (r && r.getAttribute("data-k") != null) { pick(+r.getAttribute("data-k")); } };
+  $("#fRoll").onclick = roll;
+  $("#fNew").onclick = function () { if (!G.over && G.rolls + G.sheets[0].join("").length && !confirm("Laufendes Spiel abbrechen?")) { return; } newGame(); };
+  $("#fPl").onclick = function (e) {
+    var b = closest(e.target, "button"); if (!b) { return; }
+    var n = +b.getAttribute("data-p"); if (n === players) { return; }
+    if (!G.over && G.sheets[0].join("").length && !confirm("Spieleranzahl ändern startet ein neues Spiel. Fortfahren?")) { return; }
+    players = n; store.set("five.pl", players); newGame();
+  };
+  document.addEventListener("keydown", function (e) { if (e.keyCode === 32 || e.keyCode === 13) { e.preventDefault(); roll(); } else if (e.keyCode >= 49 && e.keyCode <= 53 && G.rolls && !G.over) { G.held[e.keyCode - 49] = !G.held[e.keyCode - 49]; render(); } }, false);
+  var saved = store.get("five.game", null);
+  if (saved && saved.sheets && saved.n === players && !saved.over) { G = saved; render(); } else { newGame(); }
+})();
+</script>
+</body>
+</html>
