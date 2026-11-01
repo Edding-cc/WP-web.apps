@@ -87,7 +87,12 @@
   }
   function table() {
     var src = s.a === "nato" ? NATO : s.a === "de" ? DE : MORSE, h = "", keys = [], i;
-    for (var key in src) { if (src.hasOwnProperty(key)) { keys.push(key); } }
+    /* Buchstaben vor Ziffern vor Satzzeichen (for-in stellt Ziffern sonst an den Anfang) */
+    var lt = [], dg = [], ot = [];
+    for (var key in src) {
+      if (src.hasOwnProperty(key)) { (/^[A-Z\u00c4\u00d6\u00dc\u00df]+$/i.test(key) ? lt : /^\d$/.test(key) ? dg : ot).push(key); }
+    }
+    keys = lt.concat(dg, ot);
     for (i = 0; i < keys.length; i += 2) {
       h += '<tr><td class="mono"><b>' + esc(keys[i]) + "</b></td><td" + (s.a === "morse" ? ' class="mono"' : "") + ">" + esc(src[keys[i]]) + "</td>" +
         (keys[i + 1] ? '<td class="mono"><b>' + esc(keys[i + 1]) + "</b></td><td" + (s.a === "morse" ? ' class="mono"' : "") + ">" + esc(src[keys[i + 1]]) + "</td>" : "<td></td><td></td>") + "</tr>";
