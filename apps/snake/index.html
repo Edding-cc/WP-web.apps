@@ -24,7 +24,7 @@
 <button id="sStart" class="ac">Start</button><button data-d="up" aria-label="Hoch">↑</button><button id="sNew" class="tonal">Neu</button>
 <button data-d="left" aria-label="Links">←</button><button data-d="down" aria-label="Runter">↓</button><button data-d="right" aria-label="Rechts">→</button>
 </div>
-<p class="muted help" style="font-size:14px">Steuern per Pfeiltasten oder Wischen über das Spielfeld. Die Schlange wird mit jedem Futter länger und etwas schneller.</p>
+<p class="muted help" style="font-size:14px">Steuern per Pfeiltasten oder Wischen über das Spielfeld, Leertaste startet und pausiert. Die Schlange wird mit jedem Futter länger und etwas schneller.</p>
 </main>
 <div id="fpsOverlay"></div>
 <div class="toast" id="toast" role="status"><span></span></div>
@@ -111,6 +111,14 @@
 
   onSwipe($("#sBoard"), turn, 16);
   onArrows(function (d) { turn(d); });
+  /* Leertaste startet und pausiert (nicht in Eingabefeldern oder auf anderen Schaltflächen) */
+  document.addEventListener("keydown", function (e) {
+    if (e.keyCode !== 32 || e.ctrlKey || e.altKey || e.metaKey) { return; }
+    var t = e.target;
+    if (t !== document.body && t !== document.documentElement && t !== $("#sStart")) { return; }
+    e.preventDefault();
+    if (running) { pause(); } else { start(); }
+  }, false);
   var bs = $$("#sPad button[data-d]");
   for (var i = 0; i < bs.length; i++) { (function (b) { onPress(b, function () { turn(b.getAttribute("data-d")); }); })(bs[i]); }
   onPress($("#sStart"), function () { if (running) { pause(); } else { start(); } });

@@ -99,10 +99,13 @@
     $("#pEnt").textContent = "ca. " + Math.round(bits) + " Bit Entropie – " + bar($("#pBar"), bits) + (cfg.mode === "pin" ? " (PINs schützen nur mit Fehlversuchssperre)" : "");
   }
   function save() { store.set("pw", { len: cfg.len, up: cfg.up, lo: cfg.lo, di: cfg.di, sy: cfg.sy, amb: cfg.amb, mode: cfg.mode, pinLen: cfg.pinLen }); }
-  $("#pLen").oninput = $("#pLen").onchange = function () {
-    if (cfg.mode === "pin") { cfg.pinLen = +this.value; } else { cfg.len = +this.value; }
+  function setLen() {
+    if (cfg.mode === "pin") { cfg.pinLen = +$("#pLen").value; } else { cfg.len = +$("#pLen").value; }
     save(); ui();
-  };
+  }
+  $("#pLen").oninput = setLen;
+  /* nach Loslassen bzw. Ändern des Reglers sofort neu erzeugen (IE11 meldet Regler über "change") */
+  $("#pLen").onchange = function () { setLen(); run(); };
   $("#pSets").onclick = function (e) { var b = closest(e.target, ".tg"); if (b) { var k = b.getAttribute("data-k"); cfg[k] = !cfg[k]; save(); ui(); run(); } };
   onPress($("#pGo"), run);
   $("#pCp").onclick = function () { var b = $("#pOut [data-pw]"); if (b) { copy(b.getAttribute("data-pw")); } };

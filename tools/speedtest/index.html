@@ -85,6 +85,22 @@
     } catch (e) { fin("Anfrage nicht möglich"); }
   }
 
+  /* Cloudflare-Rechenzentrum (z. B. "FRA") aus /cdn-cgi/trace; Fehler werden ignoriert, cb("") */
+  function getColo(cb) {
+    var x = new XMLHttpRequest(), done = false;
+    function fin(c) { if (done) { return; } done = true; cur = null; cb(c || ""); }
+    try {
+      x.open("GET", BASE + "/cdn-cgi/trace?r=" + rnd(), true);
+      x.timeout = 5000;
+      x.onload = function () {
+        var m = x.status >= 200 && x.status < 300 ? /(?:^|\n)colo=([A-Za-z0-9]+)/.exec(x.responseText || "") : null;
+        fin(m ? m[1].toUpperCase() : "");
+      };
+      x.onerror = x.ontimeout = x.onabort = function () { fin(""); };
+      cur = x;
+      x.send(null);
+    } catch (e) { fin(""); }
+  }
   function doPing(n, cb) {
     var times = [], k = 0;
     function next() {
@@ -156,32 +172,38 @@
   function show(o, errs) {
     var h = '<div class="row" style="justify-content:space-around"><div><div class="muted">↓ Download</div><b style="font-size:22px">' + fmtBits(o.down) + "</b></div>" +
       '<div><div class="muted">↑ Upload</div><b style="font-size:22px">' + fmtBits(o.up) + "</b></div></div>" +
-      (o.ping != null ? '<div class="muted" style="margin-top:8px">Ping ' + nf(o.ping, 0) + " ms</div>" : "");
+      (o.ping != null || o.where ? '<div class="muted" style="margin-top:8px">' + (o.ping != null ? "Ping " + nf(o.ping, 0) + " ms" : "") +
+        (o.ping != null && o.where ? " · " : "") + (o.where ? "Rechenzentrum " + esc(o.where) : "") + "</div>" : "");
     if (errs.length) { h += '<p class="err" style="margin:8px 0 0">' + esc(errs.join(" ")) + "</p>"; }
     $("#stRes").innerHTML = h;
   }
 
   $("#stGo").onclick = function () {
-    var out = { ping: null, down: 0, up: 0 }, errs = [];
+    var out = { ping: null, down: 0, up: 0, where: "" }, errs = [];
     if (running) { aborted = true; if (cur) { try { cur.abort(); } catch (e) {} } return; }
     running = true; aborted = false;
     $("#stGo").textContent = "Abbrechen"; $("#stGo").className = "btn tonal";
     $("#stRes").textContent = "…"; live(0);
-    phase("Ping …");
-    doPing(6, function (err, ping) {
-      if (err) { if (aborted) { finish("Abgebrochen"); return; } $("#stRes").innerHTML = '<span class="err">Fehlgeschlagen: ' + esc(err) + ". Cloudflare nicht erreichbar oder vom Browser blockiert.</span>"; finish("Fehlgeschlagen"); return; }
-      out.ping = ping;
-      phase("Download ↓"); live(0);
-      doDown(function (e2, d) {
-        if (aborted) { finish("Abgebrochen"); return; }
-        if (e2) { errs.push("Download: " + e2 + "."); } else { out.down = p90(d); }
-        show(out, errs);
-        phase("Upload ↑"); live(0);
-        doUp(ping, function (e3, u) {
-          if (aborted) { show(out, errs); finish("Abgebrochen"); return; }
-          if (e3) { errs.push("Upload: " + e3 + "."); } else { out.up = p90(u); }
+    phase("Verbinde …");
+    getColo(function (colo) {
+      if (aborted) { finish("Abgebrochen"); return; }
+      out.where = colo;
+      phase("Ping …");
+      doPing(6, function (err, ping) {
+        if (err) { if (aborted) { finish("Abgebrochen"); return; } $("#stRes").innerHTML = '<span class="err">Fehlgeschlagen: ' + esc(err) + ". Cloudflare nicht erreichbar oder vom Browser blockiert.</span>"; finish("Fehlgeschlagen"); return; }
+        out.ping = ping;
+        phase("Download ↓"); live(0);
+        doDown(function (e2, d) {
+          if (aborted) { finish("Abgebrochen"); return; }
+          if (e2) { errs.push("Download: " + e2 + "."); } else { out.down = p90(d); }
           show(out, errs);
-          finish(errs.length ? "Fertig mit Fehlern" : "Fertig");
+          phase("Upload ↑"); live(0);
+          doUp(ping, function (e3, u) {
+            if (aborted) { show(out, errs); finish("Abgebrochen"); return; }
+            if (e3) { errs.push("Upload: " + e3 + "."); } else { out.up = p90(u); }
+            show(out, errs);
+            finish(errs.length ? "Fertig mit Fehlern" : "Fertig");
+          });
         });
       });
     });

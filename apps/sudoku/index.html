@@ -22,7 +22,7 @@
 <header class="top"><div class="wrap"><a class="iconbtn" href="../../" aria-label="Zurück"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a><h1>Sudoku</h1><a class="iconbtn" href="../../einstellungen/" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></a></div></header>
 <main class="wrap">
 <div class="chips" id="sLvl"><button data-l="0">Leicht</button><button data-l="1">Mittel</button><button data-l="2">Schwer</button></div>
-<div class="stats"><div><b id="sTime">0:00</b><span>Zeit</span></div><div><b id="sLeft">–</b><span>Offen</span></div><div><b id="sErr">0</b><span>Fehler</span></div></div>
+<div class="stats"><div><b id="sTime">0:00</b><span>Zeit</span></div><div><b id="sLeft">–</b><span>Offen</span></div><div><b id="sErr">0</b><span>Fehler</span></div><div><b id="sBest">–</b><span>Bestzeit</span></div></div>
 <div class="board" id="sBoard"><table id="sg"></table></div>
 <p class="center" id="sMsg" style="min-height:1.5em;margin:0 0 8px;font-weight:600"></p>
 <div class="ctl c5" id="sPad2"></div>
@@ -137,6 +137,8 @@
     }
     $("#sLeft").textContent = open; $("#sErr").textContent = st.err;
     $("#sTime").textContent = fmtDur(st.t * 1000);
+    var bk = store.get("sudoku.best", {});
+    $("#sBest").textContent = bk[lvl] ? fmtDur(bk[lvl] * 1000) : "–";
     var bs = $$("#sLvl button");
     for (i = 0; i < bs.length; i++) { bs[i].setAttribute("aria-pressed", +bs[i].getAttribute("data-l") === lvl ? "true" : "false"); }
     $("#sShowErr").setAttribute("aria-pressed", showErr ? "true" : "false");
@@ -187,9 +189,11 @@
     var k = e.keyCode;
     if (k >= 49 && k <= 57) { input(k - 48); } else if (k >= 97 && k <= 105) { input(k - 96); }
     else if (k === 8 || k === 46 || k === 48) { e.preventDefault(); input(0); }
-    else if (k >= 37 && k <= 40 && sel >= 0) {
+    else if (k === 78 && !e.ctrlKey && !e.altKey && !e.metaKey && st && !st.done) { notesMode = !notesMode; render(); }
+    else if (k >= 37 && k <= 40 && st && !st.done) {
       e.preventDefault();
-      sel = k === 37 ? (sel % 9 ? sel - 1 : sel) : k === 39 ? (sel % 9 < 8 ? sel + 1 : sel) : k === 38 ? (sel >= 9 ? sel - 9 : sel) : (sel < 72 ? sel + 9 : sel);
+      /* ohne Auswahl zuerst das mittlere Feld wählen */
+      sel = sel < 0 ? 40 : k === 37 ? (sel % 9 ? sel - 1 : sel) : k === 39 ? (sel % 9 < 8 ? sel + 1 : sel) : k === 38 ? (sel >= 9 ? sel - 9 : sel) : (sel < 72 ? sel + 9 : sel);
       render();
     }
   }, false);
